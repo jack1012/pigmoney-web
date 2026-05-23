@@ -86,4 +86,23 @@ export function ensureBudgetSchema(db) {
       bucket TEXT  -- 'life' | 'fixed' | 'save'
     );
   `)
+
+  // ===== 資產（家庭資產快照） =====
+  db.run(`
+    CREATE TABLE IF NOT EXISTS asset_account (
+      ano       INTEGER PRIMARY KEY AUTOINCREMENT,
+      category  TEXT NOT NULL,    -- '現金' | '投資' | '動產/不動產' | '負債'
+      name      TEXT NOT NULL,
+      note      TEXT,
+      order_id  INTEGER DEFAULT 0
+    );
+  `)
+  db.run(`
+    CREATE TABLE IF NOT EXISTS asset_snapshot (
+      date    TEXT NOT NULL,      -- 'YYYY-MM-DD'
+      ano     INTEGER NOT NULL,
+      amount  INTEGER NOT NULL,
+      PRIMARY KEY (date, ano)
+    );
+  `)
 }

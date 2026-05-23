@@ -26,6 +26,79 @@ export const useMoneyStore = defineStore('money', () => {
   function clearPendingEdit() { pendingEditMno.value = null }
   function clearTabSwitch()   { requestTabSwitch.value = null }
 
+  // ── 資產狀態 ────────────────────────────────────────
+  const assetAccounts = ref([])    // [{ano, category, name, note, order_id}]
+  const assetSnapshots = ref([])   // [{date, ano, amount}]
+
+  async function loadAssets() {
+    if (!db.value) return
+    assetAccounts.value = rowsToObjects(db.value.exec(
+      'SELECT ano, category, name, note, order_id FROM asset_account ORDER BY category, order_id, ano'
+    ))
+    assetSnapshots.value = rowsToObjects(db.value.exec(
+      'SELECT date, ano, amount FROM asset_snapshot ORDER BY date'
+    ))
+  }
+
+  async function upsertAssetAccount({ ano, category, name, note, order_id }) {
+    if (!db.value) return
+    if (ano) {
+      db.value.run(
+        'UPDATE asset_account SET category=?, name=?, note=?, order_id=? WHERE ano=?',
+        [category, name, note ?? null, order_id ?? 0, ano]
+      )
+    } else {
+      const maxOrder = assetAccounts.value
+        .filter(a => a.category === category)
+        .reduce((m, a) => Math.max(m, a.order_id ?? 0), 0)
+      db.value.run(
+        'INSERT INTO asset_account (category, name, note, order_id) VALUES (?, ?, ?, ?)',
+        [category, name, note ?? null, order_id ?? (maxOrder + 1)]
+      )
+    }
+    await loadAssets(); await saveFile()
+  }
+
+  async function deleteAssetAccount(ano) {
+    if (!db.value) return
+    db.value.run('DELETE FROM asset_snapshot WHERE ano=?', [ano])
+    db.value.run('DELETE FROM asset_account WHERE ano=?', [ano])
+    await loadAssets(); await saveFile()
+  }
+
+  async function upsertAssetSnapshot({ date, ano, amount }) {
+    if (!db.value) return
+    if (amount == null || amount === '' || Number.isNaN(Number(amount))) {
+      db.value.run('DELETE FROM asset_snapshot WHERE date=? AND ano=?', [date, ano])
+    } else {
+      db.value.run(
+        `INSERT INTO asset_snapshot (date, ano, amount) VALUES (?, ?, ?)
+         ON CONFLICT(date, ano) DO UPDATE SET amount=excluded.amount`,
+        [date, ano, Math.round(Number(amount))]
+      )
+    }
+    await loadAssets(); await saveFile()
+  }
+
+  async function bulkUpsertAssetSnapshots(items) {
+    if (!db.value || !items?.length) return
+    for (const { date, ano, amount } of items) {
+      if (amount == null || amount === '' || Number.isNaN(Number(amount))) continue
+      db.value.run(
+        `INSERT INTO asset_snapshot (date, ano, amount) VALUES (?, ?, ?)
+         ON CONFLICT(date, ano) DO UPDATE SET amount=excluded.amount`,
+        [date, ano, Math.round(Number(amount))]
+      )
+    }
+    await loadAssets(); await saveFile()
+  }
+
+  async function deleteAssetSnapshotDate(date) {
+    if (!db.value) return
+    db.value.run('DELETE FROM asset_snapshot WHERE date=?', [date])
+    await loadAssets(); await saveFile()
+  }
+
   // ── 預算狀態 ────────────────────────────────────────
   const budgetYear = ref(new Date().getFullYear())
   const budgetYearMeta = ref(null)   // { year, total, note, ratio_life, ratio_fixed, ratio_save } | null
@@ -127,6 +200,7 @@ export const useMoneyStore = defineStore('money', () => {
       ),
     )
     loadBudget(budgetYear.value)
+    loadAssets()
   }
 
   async function addTransaction({ cno, sno, spend, date, note, mode }) {
@@ -562,5 +636,14 @@ export const useMoneyStore = defineStore('money', () => {
     actualIncome,
     loadClassBuckets,
     setClassBucket,
+    // 資產
+    assetAccounts,
+    assetSnapshots,
+    loadAssets,
+    upsertAssetAccount,
+    deleteAssetAccount,
+    upsertAssetSnapshot,
+    bulkUpsertAssetSnapshots,
+    deleteAssetSnapshotDate,
   }
 })

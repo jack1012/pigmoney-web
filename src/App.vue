@@ -6,6 +6,7 @@ import StatsPage from './pages/StatsPage.vue'
 import ChartPage from './pages/ChartPage.vue'
 import CategoryPage from './pages/CategoryPage.vue'
 import BudgetPage from './pages/BudgetPage.vue'
+import AssetPage from './pages/AssetPage.vue'
 import SettingsPage from './pages/SettingsPage.vue'
 
 const store = useMoneyStore()
@@ -18,6 +19,7 @@ const tabs = shallowRef([
   { id: 'chart', label: '圖表', component: ChartPage },
   { id: 'category', label: '分類', component: CategoryPage },
   { id: 'budget', label: '預算', component: BudgetPage },
+  { id: 'asset', label: '資產', component: AssetPage },
   { id: 'settings', label: '關於', component: SettingsPage },
 ])
 
