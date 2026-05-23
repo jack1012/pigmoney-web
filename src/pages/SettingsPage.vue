@@ -136,6 +136,10 @@ const store = useMoneyStore()
                 <li>· 旅遊專案改名規則：年份-地點 — 102 拆 2024-香港迪士尼 + 2026-香港迪士尼；244/106/109 → 2023/2025/2026-美國LA之旅</li>
                 <li>· 旅遊專案拆分：250 出國 41 筆拆成 2009-希臘 / 2010-韓國 / 2011-土耳其 / 2012-峇里島 / 2013-韓國 / 2014-美國（含 2013 護照+機票+2014 國際駕照），250 子項目已刪</li>
                 <li>· 資料備份：data/budget_export.json、money_merged.sqlite.bak_before_merge_purchase、bak_before_2026_notes、bak_before_class_budget、bak_before_cleanup_merge、bak_before_split_overseas</li>
+                <li>· 版本管理：git init + .gitignore（排除 *.sqlite/*.bak/截圖/個人 csv/docx/json/暫存腳本），第一個 commit 鎖住 26 個 source/config/docs</li>
+                <li>· GitHub repo 建立：jack1012/pigmoney-web（初為 private，部署需要改 public）</li>
+                <li>· GitHub Pages 部署：vite.config.js 加 base '/pigmoney-web/'，建 .github/workflows/deploy.yml（push 到 master 自動 build + deploy）</li>
+                <li>· 線上網址：<a href="https://jack1012.github.io/pigmoney-web/" target="_blank" class="text-blue-500 underline">jack1012.github.io/pigmoney-web</a>（每次 git push 自動更新，約 30-60 秒）</li>
               </ul>
             </div>
           </div>
