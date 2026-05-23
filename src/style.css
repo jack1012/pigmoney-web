@@ -1,0 +1,170 @@
+@import "tailwindcss";
+
+/* 手動切換 dark mode (用 .dark class) */
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  font-family: "Microsoft JhengHei", "Microsoft YaHei", "PingFang TC",
+    -apple-system, "Segoe UI", system-ui, sans-serif;
+  font-size: 14px;
+  line-height: 1.4;
+  -webkit-font-smoothing: antialiased;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+}
+
+html, body, #app {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: #fff;
+  color: #1f1f1f;
+}
+
+.dark body {
+  background: #1a1a1a;
+  color: #e5e5e5;
+}
+
+/* 群組面板（仿 Windows fieldset） */
+.panel {
+  position: relative;
+  border: 1px solid #d4d4d8;
+  border-radius: 4px;
+  padding: 14px 12px 10px;
+  margin-top: 6px;
+}
+.dark .panel {
+  border-color: #3f3f46;
+}
+.panel-title {
+  position: absolute;
+  top: -7px;
+  left: 10px;
+  padding: 0 6px;
+  font-size: 12px;
+  background: inherit;
+  color: #71717a;
+}
+.dark .panel-title {
+  color: #a1a1aa;
+}
+
+/* Windows 風 tab：active 有底色 + 下方 border 連到內容 */
+.tab {
+  padding: 6px 14px;
+  font-size: 13px;
+  border: 1px solid transparent;
+  border-bottom: none;
+  border-radius: 4px 4px 0 0;
+  margin-bottom: -1px;
+  color: #52525b;
+  cursor: pointer;
+  user-select: none;
+}
+.tab:hover {
+  color: #18181b;
+  background: #f4f4f5;
+}
+.dark .tab:hover {
+  color: #fafafa;
+  background: #27272a;
+}
+.tab.active {
+  background: #dbeafe;        /* blue-100 淺藍底 */
+  border-color: #93c5fd;       /* blue-300 邊框 */
+  border-top: 2px solid #2563eb;
+  padding-top: 5px;            /* 補回 top border 多的 1px */
+  color: #1d4ed8;
+  font-weight: 600;
+}
+.dark .tab.active {
+  background: #1e3a8a;         /* blue-900 深藍底 */
+  border-color: #3b82f6;
+  border-top: 2px solid #60a5fa;
+  color: #dbeafe;
+}
+.tab:disabled {
+  color: #d4d4d8;
+  cursor: not-allowed;
+}
+.dark .tab:disabled {
+  color: #52525b;
+}
+
+/* 按鈕基礎 */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 12px;
+  font-size: 13px;
+  border: 1px solid #d4d4d8;
+  border-radius: 4px;
+  background: #fafafa;
+  color: #18181b;
+  cursor: pointer;
+  transition: background 0.1s;
+}
+.btn:hover:not(:disabled) {
+  background: #f4f4f5;
+}
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.dark .btn {
+  background: #27272a;
+  border-color: #3f3f46;
+  color: #fafafa;
+}
+.dark .btn:hover:not(:disabled) {
+  background: #3f3f46;
+}
+
+.btn-primary {
+  background: #2563eb;
+  border-color: #2563eb;
+  color: #fff;
+}
+.btn-primary:hover:not(:disabled) {
+  background: #1d4ed8;
+}
+.dark .btn-primary {
+  background: #2563eb;
+  border-color: #2563eb;
+}
+
+/* 表單欄位 */
+.field {
+  padding: 3px 8px;
+  font-size: 13px;
+  border: 1px solid #d4d4d8;
+  border-radius: 3px;
+  background: #fff;
+  color: #18181b;
+  outline: none;
+}
+/* 隱藏 number input 的上下箭頭 */
+.field[type=number]::-webkit-outer-spin-button,
+.field[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.field[type=number] { -moz-appearance: textfield; appearance: textfield; }
+.field:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 2px rgb(37 99 235 / 0.15);
+}
+.dark .field {
+  background: #18181b;
+  border-color: #3f3f46;
+  color: #fafafa;
+}
+
+label.field-label {
+  font-size: 12px;
+  color: #71717a;
+}
+.dark label.field-label {
+  color: #a1a1aa;
+}

@@ -1,0 +1,66 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# 環境變數
+.env
+.env.*
+!.env.example
+
+# Vite cache
+.vite/
+
+# 個人財務資料（嚴禁推上 GitHub）
+*.sqlite
+*.sqlite.*
+*.bak*
+data/*.csv
+data/*.docx
+data/~$*
+data/*.txt
+data/budget_export.json
+data/budget_*.json
+pigmoney-categories.json
+
+# 暫存資料處理腳本（一次性 Python script）
+write_*.py
+redo_*.py
+split_*.py
+cleanup_*.py
+
+# Python
+__pycache__/
+*.pyc
+
+# 截圖 / 圖片
+擷取*.JPG
+擷取*.jpg
+*.png
+*.jpg
+*.jpeg
+!public/**/*.png
+!public/**/*.jpg
+!src/**/*.png
+!src/**/*.jpg
+
