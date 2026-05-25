@@ -90,6 +90,42 @@ const store = useMoneyStore()
               </ul>
             </div>
             <div>
+              <p class="text-zinc-400 font-medium mb-0.5">2026-05-25</p>
+              <ul class="space-y-0.5 leading-relaxed pl-2">
+                <li>· <strong>圖表頁 ChartPage 大幅建置 + 改造</strong>（Chart.js 整合）</li>
+                <li>· Tab A 年度資料：年份 dropdown（移至 Tab 同行、遞減排列）+ KPI 四卡（收入 / 一般支出 / 投資 / 結餘）</li>
+                <li>· Tab A：🎯 實際支出圖表（4 桶位）— 灰底寬柱（已設預算）+ 半透明窄柱（實際）重疊；柱頂金額標籤；超支 X 軸字變紅</li>
+                <li>· Tab A：📅 月別收支（柱+結餘折線在前）— 4 series（收入/一般支出/投資/結餘）+ 下方 4 行月別數值表</li>
+                <li>· Tab A：🔍 實際支出圖表 各項細部 — 4 桶位 tab 切換、每 class 不同色（12 色調色盤）</li>
+                <li>· Tab A：🧾 實際支出明細表（原當年支出結構） — 加「金額/百分比」模式切換、「顯示預算」toggle、視覺化欄灰底+彩柱、加「預算」欄</li>
+                <li>· Tab A：💵 實際收入明細表 — 加「預算」欄、顯示預算 toggle、視覺化欄灰底+彩柱</li>
+                <li>· Tab A：🏆 Top 10 子項排行（跨類別，含大類色點）</li>
+                <li>· Tab B 歷年趨勢：年度範圍選擇器（起≤訖，動態過濾選項）+ 3 個 LV2 區塊</li>
+                <li>· Tab B LV2-1：📈 歷年收支結餘 — 收支柱+結餘線、儲蓄率折線、收入結構堆疊、各大類年際趨勢折線</li>
+                <li>· Tab B LV2-3：📋 年度數據比對表 — 4 主指標 + 收入細項 3 行（薪資/投資獲利/其他）+ 支出 4 桶位拆解列、當年欄藍底高亮</li>
+                <li>· <strong>聚焦收支主題</strong>：移除 Tab A 當年資產組成、Tab B LV2-2 歷年資產組成、LV2-3 資產 3 指標列、KPI 淨資產卡</li>
+                <li>· 預算 bug 修正：sno=0（class 總額）與 sno&gt;0（子項）重複加總 — 採 BudgetPage histClassBudget 規則（優先 sno=0，無則加總 sno&gt;0）</li>
+                <li>· 資產頁：編輯模式 latestDate 加「上個月底」上限（本月未到月底時 KPI 不抓未完整資料）</li>
+                <li>· 資產頁：getMonthlyPlaceholder 當年度未到月份留白；既有月份顯示「~上月值」估值</li>
+                <li>· 資產頁：加 inline「(改名)」按鈕、DB 改名：房屋→桃園房屋、汽車→Model 3、Model 3 折舊</li>
+                <li>· 資料補錄：2021 年 6 筆股票買進（台積電 4 筆 + 易飛網 + 雄獅，合計 244 萬，對應該年投資資產年增）+ 2023 年 1 筆迅得</li>
+                <li>· 資料補錄：2013 年 55 筆股票買進（富邦金/玉山金/台積電/中石化/國泰金/群創/南光/世界/群益證/元富證 等，合計約 295 萬）</li>
+                <li>· 記帳哲學確立：投資採 A 法（全額進出），mode='信用卡支出' 區分資產搬移 vs 一般消費</li>
+                <li>· Store 新增 ChartPage 用 SQL 聚合：yearCnoSpend / yearCnoSnoSpend / yearMonthCnoSpend / yearMonthInvest / yearInvestSpend</li>
+                <li>· Chart.js valueLabelPlugin 自製 — 預算數字標柱頂上方（灰）、實際數字標柱底部</li>
+              </ul>
+            </div>
+            <div>
+              <p class="text-zinc-400 font-medium mb-0.5">2026-05-24</p>
+              <ul class="space-y-0.5 leading-relaxed pl-2">
+                <li>· 資產頁：修正歷年模式 2026 欄位空白 — histDisplayDates 未排除 -12-31 快照，導致年底空資料被選中，現金/投資顯示「—」；補上 &amp;&amp; !date.endsWith('-12-31') 篩選</li>
+                <li>· 預算頁：移除「複製上年」「統計初值」「AI 分析」按鈕</li>
+                <li>· 預算頁：加入「編輯 / 歷年」模式切換（同資產頁設計）</li>
+                <li>· 預算頁：歷年模式 — 跨年度橫向比較表，欄為年份，列為各桶位類別預算，含小計與總計，唯讀</li>
+                <li>· Store：新增 loadAllBudgets()、allBudgetYearMetas、allBudgetItems</li>
+              </ul>
+            </div>
+            <div>
               <p class="text-zinc-400 font-medium mb-0.5">2026-05-23</p>
               <ul class="space-y-0.5 leading-relaxed pl-2">
                 <li>· 預算頁：budget schema（budget_year / budget_item / budget_project / budget_class_bucket）</li>
@@ -188,14 +224,6 @@ const store = useMoneyStore()
             <span class="text-zinc-500">分類頁：類別/子項目 CRUD + 排序 + 匯出/匯入</span>
           </li>
           <li class="flex gap-2">
-            <span class="text-zinc-300 shrink-0">○</span>
-            <span class="text-zinc-400">圖表頁：月支出趨勢折線圖（Chart.js）</span>
-          </li>
-          <li class="flex gap-2">
-            <span class="text-zinc-300 shrink-0">○</span>
-            <span class="text-zinc-400">預算頁：類別預算上限 + 進度條</span>
-          </li>
-          <li class="flex gap-2">
             <span class="text-emerald-600 shrink-0">✓</span>
             <span class="text-zinc-500">統計頁：樹狀導覽 + 拖曳分隔 + 編修模式</span>
           </li>
@@ -204,12 +232,52 @@ const store = useMoneyStore()
             <span class="text-zinc-500">統計頁：選取高亮、期間整合、版面細節優化</span>
           </li>
           <li class="flex gap-2">
-            <span class="text-zinc-300 shrink-0">○</span>
-            <span class="text-zinc-400">完整鍵盤導航（方向鍵 + Shift+Enter）</span>
+            <span class="text-emerald-600 shrink-0">✓</span>
+            <span class="text-zinc-500">預算頁：KPI 卡片、桶位細項表、比例金額雙向綁定</span>
+          </li>
+          <li class="flex gap-2">
+            <span class="text-emerald-600 shrink-0">✓</span>
+            <span class="text-zinc-500">預算頁：編輯 / 歷年模式切換</span>
+          </li>
+          <li class="flex gap-2">
+            <span class="text-emerald-600 shrink-0">✓</span>
+            <span class="text-zinc-500">資產頁：快照管理（現金 / 投資 / 動產 / 負債）</span>
+          </li>
+          <li class="flex gap-2">
+            <span class="text-emerald-600 shrink-0">✓</span>
+            <span class="text-zinc-500">資產頁：編輯 / 歷年模式切換</span>
+          </li>
+          <li class="flex gap-2">
+            <span class="text-emerald-600 shrink-0">✓</span>
+            <span class="text-zinc-500">GitHub Pages 部署（push 自動更新）</span>
+          </li>
+          <li class="flex gap-2">
+            <span class="text-emerald-600 shrink-0">✓</span>
+            <span class="text-zinc-500">圖表頁 Tab A：KPI 四卡 + 預算 vs 實際 + 月別收支 + 細部 tab + 支出/收入明細 + Top 10</span>
+          </li>
+          <li class="flex gap-2">
+            <span class="text-emerald-600 shrink-0">✓</span>
+            <span class="text-zinc-500">圖表頁 Tab B：歷年收支結餘 3 圖 + 大類年際趨勢 + 年度數據比對表</span>
+          </li>
+          <li class="flex gap-2">
+            <span class="text-emerald-600 shrink-0">✓</span>
+            <span class="text-zinc-500">資料補錄：2013 / 2021 / 2023 股票買進交易（63 筆）</span>
+          </li>
+          <li class="flex gap-2 mt-2">
+            <span class="text-blue-500 shrink-0">▶</span>
+            <span class="text-zinc-700 dark:text-zinc-200 font-medium">投資真實損益區塊（年底資產年增 − 淨投入 = 已實現+未實現）</span>
           </li>
           <li class="flex gap-2">
             <span class="text-zinc-300 shrink-0">○</span>
-            <span class="text-zinc-400">GitHub Pages 部署</span>
+            <span class="text-zinc-400">圖表頁：股票賣出 sno 新增（區分「投資利得」與「股票賣出」）</span>
+          </li>
+          <li class="flex gap-2">
+            <span class="text-zinc-300 shrink-0">○</span>
+            <span class="text-zinc-400">money-2.sqlite 補錄評估（449 筆獨有交易，特別是 2019 年 345 筆）</span>
+          </li>
+          <li class="flex gap-2">
+            <span class="text-zinc-300 shrink-0">○</span>
+            <span class="text-zinc-400">完整鍵盤導航（方向鍵 + Shift+Enter）</span>
           </li>
         </ul>
       </section>

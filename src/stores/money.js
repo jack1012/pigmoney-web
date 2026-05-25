@@ -103,6 +103,8 @@ export const useMoneyStore = defineStore('money', () => {
   const budgetYear = ref(new Date().getFullYear())
   const budgetYearMeta = ref(null)   // { year, total, note, ratio_life, ratio_fixed, ratio_save } | null
   const budgetItems = ref([])        // [{ year, cno, sno, month, amount, formula }]
+  const allBudgetYearMetas = ref([]) // 歷年 budget_year：[{ year, total }]
+  const allBudgetItems = ref([])     // 歷年 budget_item (month=0)：[{ year, cno, sno, amount }]
   const classBuckets = ref({})       // { [cno]: 'life'|'fixed'|'save' }
 
   // 預設桶位（依類別名稱，初次使用時自動套入）
@@ -326,6 +328,17 @@ export const useMoneyStore = defineStore('money', () => {
   }
 
   // ── 預算 CRUD ───────────────────────────────────────
+  function loadAllBudgets() {
+    if (!db.value) return
+    ensureBudgetSchema(db.value)
+    allBudgetYearMetas.value = rowsToObjects(
+      db.value.exec(`SELECT year, total FROM budget_year ORDER BY year`)
+    )
+    allBudgetItems.value = rowsToObjects(
+      db.value.exec(`SELECT year, cno, sno, amount FROM budget_item WHERE month=0 ORDER BY year, cno, sno`)
+    )
+  }
+
   function loadBudget(year) {
     if (!db.value) return
     ensureBudgetSchema(db.value)
@@ -624,6 +637,9 @@ export const useMoneyStore = defineStore('money', () => {
     saveSubjectOrder,
     importCategories,
     // 預算方法
+    allBudgetYearMetas,
+    allBudgetItems,
+    loadAllBudgets,
     loadBudget,
     upsertBudgetYear,
     upsertBudgetItem,

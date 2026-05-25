@@ -4,6 +4,10 @@ import { useMoneyStore } from '../stores/money.js'
 
 const store = useMoneyStore()
 
+// ── 檢視模式 ──────────────────────────────────────
+const viewMode = ref('edit')  // 'edit' | 'history'
+watch(viewMode, (v) => { if (v === 'history') store.loadAllBudgets() })
+
 // ── 年份 ──────────────────────────────────────────
 const yearOptions = computed(() => {
   const now = new Date().getFullYear()
@@ -369,6 +373,41 @@ const CARDS = [
 
 // 存款推算（預算面）：收入預估 − 實際已設預算合計
 const budgetSavings = computed(() => incomeBudgeted.value - yearTotalBudget.value)
+// ── 歷年 computeds ────────────────────────────────
+const histYears = computed(() =>
+  [...new Set([
+    ...store.allBudgetYearMetas.map(m => m.year),
+    ...store.allBudgetItems.map(i => i.year),
+  ])].sort((a, b) => a - b)
+)
+const histYearTotals = computed(() => {
+  const m = new Map()
+  for (const meta of store.allBudgetYearMetas) m.set(meta.year, meta.total)
+  return m
+})
+// Map: `${year}:${cno}` → items[]
+const histItemMap = computed(() => {
+  const m = new Map()
+  for (const it of store.allBudgetItems) {
+    const k = `${it.year}:${it.cno}`
+    if (!m.has(k)) m.set(k, [])
+    m.get(k).push(it)
+  }
+  return m
+})
+function histClassBudget(y, cno) {
+  const items = histItemMap.value.get(`${y}:${cno}`) ?? []
+  const direct = items.find(i => i.sno === 0)?.amount ?? null
+  if (direct != null) return direct
+  const detail = items.filter(i => i.sno !== 0).reduce((a, i) => a + (i.amount ?? 0), 0)
+  return detail || null
+}
+function histBucketTotal(y, bucketKey) {
+  return store.classes
+    .filter(c => store.classBuckets[c.cno] === bucketKey)
+    .reduce((a, c) => a + (histClassBudget(y, c.cno) ?? 0), 0) || null
+}
+
 // 設定列存款推算：總收入 − 四桶位目標金額加總（即時反映比例/總額變動）
 const settingsSavings = computed(() =>
   total.value - Object.values(targetAmounts.value).reduce((a, b) => a + b, 0)
@@ -382,15 +421,33 @@ const actualSavingsByBucket = computed(() => total.value - incomeBudgeted.value)
 
     <!-- ── 工具列 ── -->
     <div class="flex items-center gap-2 flex-wrap">
-      <span class="text-[13px] text-zinc-500 mr-1">選擇預算年份</span>
-      <select v-model.number="year" class="field">
-        <option v-for="y in yearOptions" :key="y" :value="y">{{ y }} 年</option>
-      </select>
-      <button class="btn" @click="copyLastYear">複製 {{ year - 1 }}</button>
-      <button class="btn" @click="autofillFromHistory">📊 統計初值</button>
+      <!-- 模式切換 -->
+      <div class="flex rounded-lg overflow-hidden border border-zinc-300 dark:border-zinc-600 text-[13px]">
+        <button @click="viewMode = 'edit'"
+                :class="viewMode === 'edit'
+                  ? 'bg-zinc-800 dark:bg-zinc-200 text-white dark:text-zinc-900 px-3 py-1'
+                  : 'bg-white dark:bg-zinc-800 text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 px-3 py-1'">
+          編輯
+        </button>
+        <button @click="viewMode = 'history'"
+                :class="viewMode === 'history'
+                  ? 'bg-zinc-800 dark:bg-zinc-200 text-white dark:text-zinc-900 px-3 py-1'
+                  : 'bg-white dark:bg-zinc-800 text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 px-3 py-1'">
+          歷年
+        </button>
+      </div>
+      <!-- 年份（編輯模式才顯示） -->
+      <template v-if="viewMode === 'edit'">
+        <span class="text-[13px] text-zinc-500 ml-1">年份</span>
+        <select v-model.number="year" class="field">
+          <option v-for="y in yearOptions" :key="y" :value="y">{{ y }} 年</option>
+        </select>
+      </template>
       <button class="btn" @click="exportBudgetJson">📥 匯出 JSON</button>
-      <button class="btn" disabled>🤖 AI 分析</button>
     </div>
+
+    <!-- ── 編輯模式 ── -->
+    <template v-if="viewMode === 'edit'">
 
     <!-- ── 收入預估表 ── -->
     <div class="bg-white dark:bg-zinc-900 rounded-xl shadow-sm border border-zinc-200 dark:border-zinc-700 px-5 py-4">
@@ -880,6 +937,79 @@ const actualSavingsByBucket = computed(() => total.value - incomeBudgeted.value)
         </table>
       </div>
     </div>
+
+    </template><!-- /edit mode -->
+
+    <!-- ── 歷年模式 ── -->
+    <template v-else>
+      <div class="bg-white dark:bg-zinc-900 rounded-xl shadow-sm border border-zinc-200 dark:border-zinc-700 overflow-auto">
+        <table class="w-full text-[13px] border-collapse">
+          <thead class="bg-zinc-50 dark:bg-zinc-800/60 text-zinc-500 dark:text-zinc-400 text-[12px]">
+            <tr>
+              <th class="text-left py-2 px-3 border-b border-zinc-200 dark:border-zinc-700 min-w-[120px]">項目</th>
+              <th v-for="y in histYears" :key="y"
+                  class="text-right py-2 px-3 border-b border-zinc-200 dark:border-zinc-700 min-w-[64px]">
+                {{ y }}
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            <!-- 年度收入預算 -->
+            <tr class="border-b border-zinc-100 dark:border-zinc-800">
+              <td class="py-2 px-3 font-semibold text-zinc-700 dark:text-zinc-200">年度收入預算</td>
+              <td v-for="y in histYears" :key="y" class="py-2 px-3 text-right">
+                <span v-if="histYearTotals.get(y)" class="font-semibold">
+                  {{ Math.round(histYearTotals.get(y) / 10000) }}W
+                </span>
+                <span v-else class="text-zinc-300 dark:text-zinc-600">—</span>
+              </td>
+            </tr>
+
+            <!-- 各桶位 -->
+            <template v-for="section in BUCKET_SECTIONS" :key="section.key">
+              <!-- 桶位標題 -->
+              <tr class="bg-zinc-100/60 dark:bg-zinc-700/40">
+                <td class="py-1 px-3 font-bold text-[11px] text-zinc-500 dark:text-zinc-400 tracking-wide uppercase" colspan="99">
+                  {{ section.label }}
+                </td>
+              </tr>
+              <!-- 各類別 -->
+              <tr v-for="c in classesByBucket[section.key]" :key="c.cno"
+                  class="border-b border-zinc-50 dark:border-zinc-800/50 hover:bg-zinc-50 dark:hover:bg-zinc-800/20">
+                <td class="py-1.5 px-3 pl-5 text-zinc-600 dark:text-zinc-300">{{ c.name }}</td>
+                <td v-for="y in histYears" :key="y" class="py-1.5 px-3 text-right">
+                  <span v-if="histClassBudget(y, c.cno) != null">
+                    {{ Math.round(histClassBudget(y, c.cno) / 10000) }}W
+                  </span>
+                  <span v-else class="text-zinc-300 dark:text-zinc-600">—</span>
+                </td>
+              </tr>
+              <!-- 桶位小計 -->
+              <tr class="bg-zinc-50 dark:bg-zinc-800/30 text-[12px] font-semibold border-b border-zinc-200 dark:border-zinc-700">
+                <td class="py-1 px-3 pl-5 text-zinc-500">{{ section.label }} 小計</td>
+                <td v-for="y in histYears" :key="y" class="py-1 px-3 text-right text-zinc-500">
+                  <span v-if="histBucketTotal(y, section.key) != null">
+                    {{ Math.round(histBucketTotal(y, section.key) / 10000) }}W
+                  </span>
+                  <span v-else class="text-zinc-300 dark:text-zinc-600">—</span>
+                </td>
+              </tr>
+            </template>
+
+            <!-- 總計 -->
+            <tr class="font-bold bg-zinc-100 dark:bg-zinc-800 border-t-2 border-zinc-300 dark:border-zinc-600">
+              <td class="py-2 px-3">已設預算合計</td>
+              <td v-for="y in histYears" :key="y" class="py-2 px-3 text-right">
+                {{ (() => {
+                  const total = BUCKET_SECTIONS.reduce((a, s) => a + (histBucketTotal(y, s.key) ?? 0), 0)
+                  return total ? Math.round(total / 10000) + 'W' : '—'
+                })() }}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </template><!-- /history mode -->
 
   </div>
 </template>
