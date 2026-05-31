@@ -3,6 +3,7 @@ import { ref, computed, watch, watchEffect, nextTick } from 'vue'
 import { AgGridVue } from 'ag-grid-vue3'
 import { themeQuartz } from 'ag-grid-community'
 import { useMoneyStore } from '../stores/money.js'
+import { modeLabel } from '../lib/modeLabel.js'
 
 const store = useMoneyStore()
 
@@ -17,7 +18,7 @@ const periodMode  = ref('current') // 'current' | 'all' | 'range'
 const currentYear = new Date().getFullYear().toString()
 const rangeStart  = ref(currentYear)
 const rangeEnd    = ref(currentYear)
-const typeFilter  = ref('現金支出') // '全部' | '現金支出' | '信用卡支出' | '收入'
+const typeFilter  = ref('現金支出') // '全部' | '現金支出' | '信用卡支出' | '信用卡收入' | '收入'
 const selectedKey = ref(null)
 const expandedKeys = ref(new Set())
 const editMode    = ref(false)
@@ -114,10 +115,12 @@ const gridRows = computed(() => {
 
 // ── 摘要 ─────────────────────────────────────────────
 const round2 = n => Math.round(n * 100) / 100
+// 收入判斷：mode='收入'(實質收入) 或 mode='信用卡收入'(投資收入) 都算 cash inflow
+const isIncomeMode = m => m === '收入' || m === '信用卡收入'
 const summary = computed(() => {
   let spend = 0, income = 0
   for (const r of gridRows.value) {
-    if (r.mode === '收入') income += r.spend || 0
+    if (isIncomeMode(r.mode)) income += r.spend || 0
     else spend += r.spend || 0
   }
   return { count: gridRows.value.length, spend: round2(spend), income: round2(income), balance: round2(income - spend) }
@@ -135,7 +138,7 @@ const yearTree = computed(() => {
     const yr = t.date?.slice(0, 4); const mo = t.date?.slice(0, 7)
     if (!yr) return
     const cno = t.cno ?? 0; const sno = t.sno
-    const isIncome = t.mode === '收入'; const amt = t.spend || 0
+    const isIncome = isIncomeMode(t.mode); const amt = t.spend || 0
     if (!map[yr]) map[yr] = { spend: 0, income: 0, months: {} }
     acc(map[yr], isIncome, amt)
     if (!map[yr].months[mo]) map[yr].months[mo] = { spend: 0, income: 0, cats: {} }
@@ -158,7 +161,7 @@ const categoryTree = computed(() => {
     const cno = t.cno ?? 0; const sno = t.sno ?? 0
     const yr = t.date?.slice(0, 4); const mo = t.date?.slice(0, 7)
     if (!yr) return
-    const isIncome = t.mode === '收入'; const amt = t.spend || 0
+    const isIncome = isIncomeMode(t.mode); const amt = t.spend || 0
     if (!map[cno]) map[cno] = { spend: 0, income: 0, subs: {} }
     acc(map[cno], isIncome, amt)
     if (!map[cno].subs[sno]) map[cno].subs[sno] = { spend: 0, income: 0, years: {} }
@@ -197,7 +200,8 @@ const columnDefs = computed(() => {
     },
     { field: 'date',        headerName: '日期',   width: 105, editable: e, cellEditor: 'agTextCellEditor', sort: 'desc' },
     { field: 'mode',        headerName: '類型',   width: 100, editable: e, cellEditor: 'agSelectCellEditor',
-      cellEditorParams: { values: ['現金支出', '信用卡支出', '收入'] } },
+      cellEditorParams: { values: ['現金支出', '信用卡支出', '信用卡收入', '收入'] },
+      valueFormatter: p => modeLabel(p.value) },
     { field: 'className',   headerName: '類別',   width: 90,  editable: e, cellEditor: 'agSelectCellEditor',
       cellEditorParams: { values: classValues.value } },
     { field: 'subjectName', headerName: '子項目', width: 110, editable: e, cellEditor: 'agSelectCellEditor',
@@ -341,6 +345,7 @@ function fmt(n) {
 }
 
 function nodeAmt(node) {
+  if (isIncomeMode(typeFilter.value)) return fmt(node.income)
   if (typeFilter.value === '收入') return fmt(node.income)
   if (typeFilter.value === '全部') {
     const net = node.income - node.spend
@@ -350,6 +355,7 @@ function nodeAmt(node) {
 }
 
 function nodeAmtClass(node) {
+  if (isIncomeMode(typeFilter.value)) return 'text-emerald-600 dark:text-emerald-400'
   if (typeFilter.value === '收入') return 'text-emerald-600 dark:text-emerald-400'
   if (typeFilter.value === '全部') {
     return node.income >= node.spend
@@ -384,9 +390,10 @@ function sanitizeYear(e) {
 
       <!-- 類型 -->
       <div class="flex gap-1">
-        <button class="btn" :class="typeFilter === '現金支出'  ? 'btn-primary' : ''" @click="toggleType('現金支出')">現金支出</button>
-        <button class="btn" :class="typeFilter === '信用卡支出' ? 'btn-primary' : ''" @click="toggleType('信用卡支出')">信用卡</button>
-        <button class="btn" :class="typeFilter === '收入'      ? 'btn-primary' : ''" @click="toggleType('收入')">收入</button>
+        <button class="btn" :class="typeFilter === '現金支出'   ? 'btn-primary' : ''" @click="toggleType('現金支出')">實際支出</button>
+        <button class="btn" :class="typeFilter === '收入'       ? 'btn-primary' : ''" @click="toggleType('收入')">實際收入</button>
+        <button class="btn" :class="typeFilter === '信用卡支出' ? 'btn-primary' : ''" @click="toggleType('信用卡支出')">資金轉移</button>
+        <button class="btn" :class="typeFilter === '信用卡收入' ? 'btn-primary' : ''" @click="toggleType('信用卡收入')">資金回收</button>
       </div>
 
       <div class="w-px h-4 bg-zinc-300 dark:bg-zinc-600" />

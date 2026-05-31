@@ -50,6 +50,7 @@ function pickFile() {
 
 function switchTab(id) {
   currentTab.value = id
+  store.checkDiskReload()
 }
 </script>
 
@@ -72,7 +73,8 @@ function switchTab(id) {
       </nav>
 
       <div class="ml-auto flex items-center gap-2 pb-1.5 self-center">
-        <span v-if="store.lastSaved" class="text-xs text-emerald-600 dark:text-emerald-400">
+        <span v-if="store.diskReloaded" class="text-xs text-cyan-500">↻ 已同步</span>
+        <span v-else-if="store.lastSaved" class="text-xs text-emerald-600 dark:text-emerald-400">
           已存 {{ store.lastSaved }}
         </span>
         <span v-else-if="store.fileName" class="text-xs text-zinc-500 dark:text-zinc-400">

@@ -93,12 +93,20 @@ function getAmt(ano, date) {
   return snapMap.value.get(`${date}:${ano}`)
 }
 
+// 名稱含 股票/基金/保單 視為「股票類」（投資組合）
+const STOCK_NAME_RE = /股票|基金|保單/
+const isStockAccount = (name) => STOCK_NAME_RE.test(name ?? '')
+
 // ── 帳戶分組 ───────────────────────────────────────
+// DB category 已合併為「資金」「動產/不動產」「負債」3 類
+// UI 仍依邏輯桶分 4 類顯示：資金 內依 name 細分為「現金」「投資」
 const byCategory = computed(() => {
   const m = {}
   for (const c of CATEGORIES) m[c.key] = []
   for (const a of store.assetAccounts) {
-    if (m[a.category]) m[a.category].push(a)
+    let logical = a.category
+    if (a.category === '資金') logical = isStockAccount(a.name) ? '投資' : '現金'
+    if (m[logical]) m[logical].push(a)
   }
   return m
 })
@@ -280,8 +288,11 @@ const newNote   = ref('')
 
 async function addAccount() {
   if (!addingCat.value || !newName.value.trim()) { addingCat.value = null; return }
+  // 邏輯桶 → DB category：現金/投資 → '資金'；其他維持
+  const dbCategory = (addingCat.value === '現金' || addingCat.value === '投資')
+    ? '資金' : addingCat.value
   await store.upsertAssetAccount({
-    category: addingCat.value,
+    category: dbCategory,
     name:     newName.value.trim(),
     note:     newNote.value.trim() || null,
   })

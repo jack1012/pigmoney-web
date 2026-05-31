@@ -5,44 +5,191 @@ const store = useMoneyStore()
 </script>
 
 <template>
-  <div class="p-3 flex flex-col gap-3">
-    <section class="panel">
-      <span class="panel-title">資料庫</span>
-      <div class="grid grid-cols-12 gap-x-3 gap-y-2 items-center text-[13px]">
-        <label class="field-label col-span-2 text-right">目前載入:</label>
-        <code class="col-span-10 text-[12px] text-zinc-700 dark:text-zinc-300">
-          {{ store.fileName || '（尚未載入）' }}
-        </code>
+  <div class="p-3">
 
-        <div class="col-span-12 flex gap-2 flex-wrap">
-          <button class="btn btn-primary" @click="store.openFile()">載入 .sqlite 檔</button>
-          <button class="btn" :disabled="!store.fileHandle" @click="store.saveFile()">手動存檔</button>
-          <span v-if="store.lastSaved" class="text-xs text-emerald-600 dark:text-emerald-400 self-center">
-            已存 {{ store.lastSaved }}
-          </span>
-          <button class="btn" disabled>匯出 JSON</button>
-          <button class="btn" disabled>匯出 Excel</button>
+    <!-- 2×2 全頁：Cell 1~4 等高 -->
+    <div class="grid grid-cols-2 grid-rows-2 gap-3 h-[calc(100vh-1.5rem)]">
+
+      <!-- Cell 1：資料庫 + 資料庫狀態（並列）+ 各頁面說明（下方）-->
+      <div class="flex flex-col gap-3 h-full min-h-0">
+        <!-- 資料庫 | 資料庫狀態 並列 -->
+        <div class="flex-none grid grid-cols-2 gap-3 items-start">
+          <section class="panel">
+            <span class="panel-title">資料庫</span>
+            <div class="grid grid-cols-12 gap-x-3 gap-y-2 items-center text-[13px]">
+              <label class="field-label col-span-2 text-right whitespace-nowrap">目前載入:</label>
+              <code class="col-span-10 text-[12px] text-zinc-700 dark:text-zinc-300 truncate">
+                {{ store.fileName || '（尚未載入）' }}
+              </code>
+
+              <div class="col-span-12 flex gap-1.5 flex-wrap">
+                <button class="btn btn-primary !text-[11px] !py-0.5 !px-2" @click="store.openFile()">載入 .sqlite 檔</button>
+                <button class="btn !text-[11px] !py-0.5 !px-2" :disabled="!store.fileHandle" @click="store.saveFile()">手動存檔</button>
+                <span v-if="store.lastSaved" class="text-[11px] text-emerald-600 dark:text-emerald-400 self-center">
+                  已存 {{ store.lastSaved }}
+                </span>
+                <button class="btn !text-[11px] !py-0.5 !px-2" disabled>匯出 JSON</button>
+                <button class="btn !text-[11px] !py-0.5 !px-2" disabled>匯出 Excel</button>
+              </div>
+            </div>
+          </section>
+
+          <section v-if="store.db" class="panel">
+            <span class="panel-title">資料庫狀態</span>
+            <dl class="grid grid-cols-[auto_1fr] gap-y-1 text-[13px]">
+              <dt class="text-zinc-500 pr-3">交易筆數</dt>
+              <dd>{{ store.transactions.length }} 筆</dd>
+              <dt class="text-zinc-500 pr-3">類別數量</dt>
+              <dd>{{ store.classes.length }} 個</dd>
+              <dt class="text-zinc-500 pr-3">子項目數量</dt>
+              <dd>{{ store.subjects.length }} 個</dd>
+            </dl>
+          </section>
         </div>
-      </div>
-    </section>
 
-    <section v-if="store.db" class="panel">
-      <span class="panel-title">資料庫狀態</span>
-      <dl class="grid grid-cols-[120px_1fr] gap-y-1 text-[13px] max-w-md">
-        <dt class="text-zinc-500">交易筆數</dt>
-        <dd>{{ store.transactions.length }} 筆</dd>
-        <dt class="text-zinc-500">類別數量</dt>
-        <dd>{{ store.classes.length }} 個</dd>
-        <dt class="text-zinc-500">子項目數量</dt>
-        <dd>{{ store.subjects.length }} 個</dd>
-      </dl>
-    </section>
+        <!-- 各頁面說明 -->
+        <section class="panel flex-1 flex flex-col min-h-0 overflow-hidden">
+          <span class="panel-title">📚 各頁面說明</span>
+          <div class="text-[12px] text-zinc-600 dark:text-zinc-400 space-y-2.5 flex-1 min-h-0 overflow-y-auto pr-1 mt-1">
 
-    <!-- 關於 + 開發清單 並排 -->
-    <div class="grid grid-cols-2 gap-3 items-start">
-      <section class="panel">
+            <div class="flex gap-2 items-start">
+              <span class="shrink-0 font-semibold text-emerald-600 dark:text-emerald-400 w-10">記帳</span>
+              <span>日常收支入帳工具。選擇類別與子項目、輸入金額（支援四則運算）、選擇交易類型後送出。新增/修改/刪除後即時寫回 .sqlite。</span>
+            </div>
+
+            <div class="flex gap-2 items-start">
+              <span class="shrink-0 font-semibold text-blue-500 w-10">統計</span>
+              <span>流水帳瀏覽與修改。左側樹狀導覽（年份模式 / 類別模式）篩選，右側 AG Grid 表格可直接編修。支援期間篩選、類型快篩（實際支出 / 實際收入 / 資金轉移 / 資金回收）。</span>
+            </div>
+
+            <div class="flex gap-2 items-start">
+              <span class="shrink-0 font-semibold text-purple-500 w-10">圖表</span>
+              <span>視覺化財務分析。Tab A 當年分析：KPI 綜覽、月別收支/投資/現金變動、支出明細與 Top 10。Tab B 歷年趨勢：跨年收支/淨投資折線、收入結構、現金使用趨勢、年度數據比對表。</span>
+            </div>
+
+            <div class="flex gap-2 items-start">
+              <span class="shrink-0 font-semibold text-amber-500 w-10">分類</span>
+              <span>管理類別與子項目的樹狀結構。支援新增、修改、刪除、排序（上移/下移/儲存）、設定檔 JSON 匯出與匯入。</span>
+            </div>
+
+            <div class="flex gap-2 items-start">
+              <span class="shrink-0 font-semibold text-rose-500 w-10">預算</span>
+              <span>設定各類別與子項目的年度預算目標。樹狀表格即時計算，可一鍵將統計歷史數據填入作為初始預算。圖表頁的實際支出圖表會對照此處設定值。</span>
+            </div>
+
+            <div class="flex gap-2 items-start">
+              <span class="shrink-0 font-semibold text-cyan-500 w-10">資產</span>
+              <span>追蹤每月底資產快照（現金、股票、房產、負債）。KPI 顯示淨資產與各類資產總值，折線圖呈現月度變化趨勢。快照資料也是圖表頁「實際現金變動」的計算來源。</span>
+            </div>
+
+            <div class="flex gap-2 items-start">
+              <span class="shrink-0 font-semibold text-zinc-500 w-10">關於</span>
+              <span>資料庫操作（載入/存檔）、資料庫狀態、本頁說明、財務專有名詞定義、開發日誌與開發清單。</span>
+            </div>
+
+          </div>
+        </section>
+      </div><!-- /Cell 1 -->
+
+      <!-- Cell 2：專有名詞說明 -->
+      <section class="panel h-full flex flex-col min-h-0 overflow-hidden">
+        <span class="panel-title">📖 專有名詞說明</span>
+        <div class="text-[12px] text-zinc-600 dark:text-zinc-400 space-y-3 flex-1 min-h-0 overflow-y-auto pr-1">
+
+          <!-- 觀測視角說明（全寬） -->
+          <div class="grid grid-cols-2 gap-x-3 gap-y-0.5 text-[11px]">
+            <div class="flex gap-1.5 items-start">
+              <span class="font-semibold text-blue-500 whitespace-nowrap mt-0.5">實際（Cash-based）</span>
+              <span class="text-zinc-400">銀行帳戶現金進出，日常記帳用</span>
+            </div>
+            <div class="flex gap-1.5 items-start">
+              <span class="font-semibold text-purple-500 whitespace-nowrap mt-0.5">實質（Accrual-based）</span>
+              <span class="text-zinc-400">穿透現金看財富結構，年底財報用</span>
+            </div>
+          </div>
+
+          <!-- 兩軌並排 -->
+          <div class="grid grid-cols-2 gap-3">
+            <!-- 左：實質改變軌道 -->
+            <div class="space-y-1.5">
+              <p class="text-[10px] text-zinc-400 font-medium uppercase tracking-wide">① 實質改變軌道（影響淨資產）</p>
+              <div class="rounded border-l-2 border-emerald-400 pl-2 py-0.5 bg-emerald-50 dark:bg-emerald-950/30">
+                <div class="font-semibold text-emerald-600 dark:text-emerald-400 text-[11px]">實際收入　<span class="font-normal text-zinc-400">Real Income</span></div>
+                <div class="text-[10px] leading-relaxed text-zinc-500">外部資金流入，淨資產增加。薪水、獎金、股利、利息。</div>
+              </div>
+              <div class="rounded border-l-2 border-red-400 pl-2 py-0.5 bg-red-50 dark:bg-red-950/30">
+                <div class="font-semibold text-red-500 text-[11px]">實際支出　<span class="font-normal text-zinc-400">Actual Expense</span></div>
+                <div class="text-[10px] leading-relaxed text-zinc-500">現金流出永遠消失，淨資產縮水。衣食住行、稅費、房貸利息。</div>
+              </div>
+            </div>
+
+            <!-- 右：資金搬家軌道 -->
+            <div class="space-y-1.5">
+              <p class="text-[10px] text-zinc-400 font-medium uppercase tracking-wide">② 資金搬家軌道（不影響淨資產）</p>
+              <div class="rounded border-l-2 border-orange-400 pl-2 py-0.5 bg-orange-50 dark:bg-orange-950/30">
+                <div class="font-semibold text-orange-500 text-[11px]">資金轉移　<span class="font-normal text-zinc-400">Capital Transfer</span></div>
+                <div class="text-[10px] leading-relaxed text-zinc-500">現金移往投資或消滅負債，淨資產不變。買股票、還房貸本金。</div>
+              </div>
+              <div class="rounded border-l-2 border-violet-400 pl-2 py-0.5 bg-violet-50 dark:bg-violet-950/30">
+                <div class="font-semibold text-violet-500 text-[11px]">資金回收　<span class="font-normal text-zinc-400">Capital Recovery</span></div>
+                <div class="text-[10px] leading-relaxed text-zinc-500">投出的本金變現回到現金，淨資產不變。賣股本金、收回借款。</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 衍生指標（對齊上方兩欄） -->
+          <div class="border-t border-zinc-100 dark:border-zinc-700 pt-2 grid grid-cols-2 gap-x-3 text-[11px]">
+            <!-- 左：對齊①實質改變軌道 -->
+            <div class="space-y-1.5">
+              <div class="rounded border-l-2 border-amber-400 pl-2 py-0.5 bg-amber-50 dark:bg-amber-950/30">
+                <div class="font-semibold text-amber-500">淨收益　<span class="font-normal text-zinc-400">Net Surplus</span></div>
+                <div class="text-[10px] text-zinc-500">= 實際收入 − 實際支出</div>
+              </div>
+              <div class="rounded border-l-2 border-cyan-400 pl-2 py-0.5 bg-cyan-50 dark:bg-cyan-950/30">
+                <div class="font-semibold text-cyan-500">實際現金變動　<span class="font-normal text-zinc-400">Cash Change</span></div>
+                <div class="text-[10px] text-zinc-500">= 年底現金快照 − 年初現金快照　<span class="text-zinc-400">（實際量到）</span></div>
+              </div>
+            </div>
+            <!-- 右：對齊②資金搬家軌道 -->
+            <div class="space-y-1.5">
+              <div class="rounded border-l-2 border-purple-400 pl-2 py-0.5 bg-purple-50 dark:bg-purple-950/30">
+                <div class="font-semibold text-purple-500">淨投資　<span class="font-normal text-zinc-400">Net Investment</span></div>
+                <div class="text-[10px] text-zinc-500">= 資金轉移 − 資金回收</div>
+              </div>
+              <div class="rounded border-l-2 border-teal-400 pl-2 py-0.5 bg-teal-50 dark:bg-teal-950/30">
+                <div class="font-semibold text-teal-500">實際資金變動　<span class="font-normal text-zinc-400">Asset Change</span></div>
+                <div class="text-[10px] text-zinc-500">= 實際現金變動 + 股票增減　<span class="text-zinc-400">（快照合計）</span></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 對帳工具 -->
+          <div class="border-t border-zinc-100 dark:border-zinc-700 pt-2 text-[11px]">
+            <p class="text-[10px] text-zinc-400 font-medium uppercase tracking-wide mb-1.5">④ 對帳工具</p>
+            <div class="rounded border border-dashed border-zinc-300 dark:border-zinc-600 pl-2 pr-3 py-1.5 bg-zinc-50 dark:bg-zinc-800/40">
+              <div class="flex flex-wrap gap-x-3 gap-y-0.5 items-baseline">
+                <span class="font-semibold text-zinc-600 dark:text-zinc-300 whitespace-nowrap">理論實際現金變動</span>
+                <span class="text-zinc-400">= 淨收益 − 淨投資　<span class="text-zinc-300 dark:text-zinc-600">（交易記錄推算）</span></span>
+              </div>
+              <div class="text-[10px] text-zinc-500 mt-0.5 leading-relaxed">
+                根據 DB 已記錄的交易，理論上現金應該變動多少。<br>
+                <span class="font-medium text-zinc-600 dark:text-zinc-400">實際現金變動 − 理論實際現金變動 = 未記錄的現金流</span>（如怡亭凱基薪水直扣、現金交易漏記）。<br>
+                兩者差距越大，代表帳目越不完整。
+              </div>
+            </div>
+          </div>
+
+          <!-- 備註 -->
+          <div class="text-[10px] text-zinc-400">
+            💡 怡亭凱基股票薪水直接扣款（不過銀行），故實際收入 = 實領薪資；年底財報補認列實質收入（含扣款）。
+          </div>
+        </div>
+      </section>
+
+      <!-- Cell 3：開發日誌 -->
+      <section class="panel h-full flex flex-col min-h-0 overflow-hidden">
         <span class="panel-title">開發日誌</span>
-        <div class="text-[12px] text-zinc-600 dark:text-zinc-400 space-y-3 max-h-60 overflow-y-auto pr-1">
+        <div class="text-[12px] text-zinc-600 dark:text-zinc-400 space-y-3 flex-1 min-h-0 overflow-y-auto pr-1">
           <p class="font-medium text-zinc-800 dark:text-zinc-200">家庭記帳本 v0.1 — 豬頭記帳網頁版</p>
 
           <div class="space-y-3">
@@ -116,6 +263,53 @@ const store = useMoneyStore()
               </ul>
             </div>
             <div>
+              <p class="text-zinc-400 font-medium mb-0.5">2026-05-29</p>
+              <ul class="space-y-0.5 leading-relaxed pl-2">
+                <li>· <strong>投資記帳改用拆帳法</strong>：賣股本金 = 投資收入（資產搬移），獲利/配息 = 真實收入</li>
+                <li>· DB mode 欄保留原字串（信用卡支出 / 信用卡收入）以相容豬頭記帳.exe；UI 一律顯示「投資支出 / 投資收入」</li>
+                <li>· 新增 lib/modeLabel.js — MODE_LABEL 映射 / MODE_OPTIONS 下拉 / isInvestTransfer() helper</li>
+                <li>· EntryPage：mode 下拉改用 MODE_OPTIONS、AG Grid 類型欄走 modeLabel</li>
+                <li>· StatsPage：類型篩選加「投資收入」按鈕、AG Grid editor 加 信用卡收入 選項、類型欄 valueFormatter 走 modeLabel</li>
+                <li>· ChartPage：yearInvestSpend / yearMonthInvest 改算「淨投資」= 信用卡支出 − 信用卡收入</li>
+                <li>· 賣股拆兩筆：本金 → mode='信用卡收入'/cno=14/sno=101；獲利 → mode='收入'/cno=13/sno=66 資本利得</li>
+                <li>· 配息/股利 → 維持 cno=13/sno=64 投資利得（既有用法不變）</li>
+                <li>· <strong>資料補錄</strong>：71 筆歷年賣股逐筆寫入 — 獲利 38 + 虧損 28 + 既有跳過 5；刪除 2 筆合併紀錄 (mno 26342/27021)；mno=30309 配息誤分類 sno 66→64</li>
+                <li>· cno=22「資本損失」改名「投資損失」（sno=272 股票 / 273 基金 保留）</li>
+                <li>· ChartPage：yearExpense 排除投資桶(save) + 投資損失(cno=22)，一般支出真正乾淨</li>
+                <li>· ChartPage：KPI 4 卡 → 5 卡（加投資損益）；新增 yearInvestPnL = sno=64 + sno=66 − cno=22</li>
+                <li>· ChartPage：實際支出明細採 curExpenseDetailGroups（排除 save + cno=22）；月別系列同步處理</li>
+                <li>· ChartPage：Tab B 年度比對表「總支出」改名「一般支出」</li>
+                <li>· ChartPage：EXPENSE_GROUPS 第 4 桶位「投資」→「投資損失」(cno=22)，紫色維持；4 區塊（圖表/細部/明細/月別）同步</li>
+                <li>· ChartPage：月別 series invest → invloss；結餘公式改 sur = inc − exp（純消費視角）</li>
+                <li>· ChartPage：curBudgetByBucket cno=22 直接歸 invloss 桶；FOUR_BUCKET_KEYS 改 'life/fixed/want'</li>
+                <li>· ChartPage：新增 yearInvestLoss / yearMonthInvestLoss computed</li>
+                <li>· ChartPage Tab B：「投資變化」圖改名「資金變化」（內容不變）</li>
+                <li>· ChartPage Tab B 比對表大改：加「　投資損失」進一般支出細項；一般支出總額 = 生活+固定+想要+投資損失；結餘 = 收入 − 一般支出</li>
+                <li>· ChartPage Tab B 比對表：移除「儲蓄率」「投資」列；新增「資金變動」+「　現金」+「　股票」3 列（年底 YoY）</li>
+                <li>· ChartPage Tab B：新增 yearEndStockByYear / histStockGrowth computed</li>
+                <li>· Top 10 子項排行：排除 bucket=save (cno=14 投資)</li>
+                <li>· <strong>asset_account.category 合併</strong>：21 筆「現金/投資」UPDATE 為「資金」；DB schema 不變</li>
+                <li>· isStockAccount(name) helper：name 含「股票/基金/保單」視為股票類</li>
+                <li>· ChartPage：anoName / isStockAccount 加入；yearAssets / yearEndCashByYear / yearEndStockByYear 用 name 細分</li>
+                <li>· AssetPage：byCategory 把「資金」依 name 分到邏輯桶「現金/投資」；addAccount 邏輯桶→DB category 映射；UI 仍維持 4 邏輯桶顯示</li>
+                <li>· <strong>ChartPage KPI 5→4 卡</strong>：收入 / 支出 / 結餘 / 資金變化；移除「投資」「投資損益」</li>
+                <li>· 「一般支出」統一改名「支出」（KPI / 月別 / Tab B 收支圖 / 比對表）</li>
+                <li>· 支出定義改為 = 生活+固定+想要+投資損失（yearExpense 包含 cno=22）</li>
+                <li>· 結餘公式 = 收入 − 支出；月別 sur 同步</li>
+                <li>· 「資金變動」KPI = (cash + stock) YoY；過去年份用 12-31 vs 12-31（同 Tab B 比對表），當前年份 fallback 最新月度 vs 上年 12-31（KPI 副標標註日期 + 星號提示）</li>
+                <li>· 全頁名稱統一「資金變動」（取代「資金變化」）：KPI 卡 + Tab B 圖 panel-title</li>
+                <li>· Tab A 底部新增「💧 月別資金變動」圖：現金/投資（從 snapshot YoY）+ 實際投資買入/賣出（從 money 表 mode='信用卡支出/收入'）+ 合計線；snapshot 缺月顯示 — </li>
+                <li>· 月別資金變動加「怡亭凱基」line series（粉 #ec4899）：追蹤 怡亭-凱基股票 帳戶月增，反映 2023 年後定期定額金額</li>
+                <li>· DB 重組（方案 A）：cno=14 投資擴為「投資/資產轉換」class；新增 sno=280 房貸本金 + sno=281 借款；移動胡安東借款 + 房貸 96 筆過來；cno=8/sno=81 改名「房貸利息」（保留待用）</li>
+                <li>· README 重寫：以家庭 CFO 操作指南取代舊「記帳哲學」段落；雙軌分類（紅/綠/白）+ 自由現金流 + 年度資產負債表</li>
+                <li>· KPI 4 卡改名（CFO 統一名詞）：實質收入 / 實質支出 / 淨收益 / 實際現金變動；公式：淨收益 = 實質收入 − 實質支出；實際現金變動 = 淨收益 + (投資收入 − 投資支出)，純現金流不含未實現損益</li>
+                <li>· Tab B 比對表名詞同步：總收入→實質收入；支出→實質支出；結餘→淨收益（「資金變動」保留，asset_snapshot 來源不同）</li>
+                <li>· 補錄股票本金回流：71 筆 mode='信用卡收入' / cno=14/sno=101 共 16,620,351 — 完整對齊 Excel 賣股本金 (含獲利 43 + 損失 28 筆)</li>
+                <li>· 新 sno=282 動產購置；mno=27534 TESLA Model 3 (1,609,930) 從 cno=21/sno=240 → cno=14/sno=282/mode='信用卡支出'（綠軸資產搬移）</li>
+                <li>· overviewRows / histYearData 簡化（exp 已含 loss，不再 expWithLossAt）</li>
+              </ul>
+            </div>
+            <div>
               <p class="text-zinc-400 font-medium mb-0.5">2026-05-24</p>
               <ul class="space-y-0.5 leading-relaxed pl-2">
                 <li>· 資產頁：修正歷年模式 2026 欄位空白 — histDisplayDates 未排除 -12-31 快照，導致年底空資料被選中，現金/投資顯示「—」；補上 &amp;&amp; !date.endsWith('-12-31') 篩選</li>
@@ -178,15 +372,37 @@ const store = useMoneyStore()
                 <li>· 線上網址：<a href="https://jack1012.github.io/pigmoney-web/" target="_blank" class="text-blue-500 underline">jack1012.github.io/pigmoney-web</a>（每次 git push 自動更新，約 30-60 秒）</li>
               </ul>
             </div>
+            <div>
+              <p class="text-zinc-400 font-medium mb-0.5">2026-05-31</p>
+              <ul class="space-y-0.5 leading-relaxed pl-2">
+                <li>· <strong>全站財務術語統一化</strong>：建立 CLAUDE.md 操作定義表（4 核心術語 + 5 衍生指標）</li>
+                <li>· 術語更名：實質收入→實際收入、投資支出→資金轉移、投資收入→資金回收、淨值現金→理論現金變動、現金變動→實際現金變動、資金變動→實際資金變動</li>
+                <li>· ChartPage：10+ 個 panel-title 全面對齊新術語（淨收益(實際收支) / 淨投資(實際投資) / 現金變動(實際 VS 理論) / 歷年 實際收入/實際支出/淨收益 / 現金使用 趨勢 等）</li>
+                <li>· ChartPage：KPI 淨投資公式說明改為「資金轉移 − 資金回收（正 = 淨流出）」</li>
+                <li>· ChartPage：現金變動面板新增第二條線「理論現金變動」（= 淨收益−淨投資 累積折線），資料表加 Δ實際 / Δ理論 月度對照列</li>
+                <li>· ChartPage：Tab B 年度比對表 — 資金變動→實際資金變動、現金→實際現金變動、股票→實際股票變動</li>
+                <li>· DB 資料修正：32 筆 mode=現金支出 且 cno=13（收入類）錯誤歸類 — 29 筆移至 cno=1 食，1 筆改 mode=收入，1 筆改 cno=3 電子用品，1 筆刪除</li>
+                <li>· StatsPage：類型篩選按鈕更名並重排（實際支出 / 實際收入 / 資金轉移 / 資金回收）</li>
+                <li>· SettingsPage 版面大改：2×2 全頁等高格局（grid-rows-2，h=100vh-1.5rem）；資料庫+資料庫狀態並列；新增「📚 各頁面說明」；「📖 專有名詞說明」收錄完整術語定義與對帳工具說明</li>
+                <li>· DB 重複記錄全庫清理（money_merged.sqlite）：2009–2024 共 30 筆完全重複（含 2013 富邦金買進 4 筆確認為真實交易已還原）</li>
+                <li>· 2025 年對帳分析：實際現金變動 +229萬 vs 理論現金變動 +211萬，差距 ~18萬 = <strong>已知缺口</strong>，成因：美國行以家裡美金現鈔支付（~$183,957 NTD），非從銀行帳戶領出，故不進資產快照，不處理</li>
+                <li>· <strong>下午：月別淨收益/淨投資圖修正</strong> — 圖例與資料表標籤全加「(月)」：淨收益(月)/實際收入(月)/實際支出(月)、淨投資(月)/資金轉移(月)/資金回收(月)，明確區分月度 vs 累積折線</li>
+                <li>· 月別資料表改顯示「月度值」而非累積：淨收益表改用 curMonthlySeries.sur；淨投資表新增 curMonthInvNet computed；累積量僅保留給上方折線圖</li>
+                <li>· 修正 2026 淨收益(月) 顯示 −142.3萬 異常：curMonthlyFund 加 stockFound/kaijiFound 旗標，快照缺月（如 1 月無凱基/股票）不再被當成巨額月減</li>
+                <li>· 修正 淨收益(月) 公式：移除「怡亭凱基股票月增」項（sur = 收入＋凱基−支出 → 收入−支出），對齊定義「淨收益 = 實際收入 − 實際支出」；修正歷年 12 月誤顯示為正值</li>
+                <li>· 建立專案 codebase CLAUDE.md（pigmoney-web 根目錄，非上午的術語定義表）：指令/架構/資料流/DB schema/mode 值映射/財務名詞/node 腳本/慣例，附於 12 條規則之下</li>
+              </ul>
+            </div>
           </div>
 
           <p class="text-zinc-400">jack · uno = 1</p>
         </div>
       </section>
 
-      <section class="panel">
+      <!-- Cell 4：開發清單 -->
+      <section class="panel h-full flex flex-col min-h-0 overflow-hidden">
         <span class="panel-title">開發清單</span>
-        <ul class="text-[12px] space-y-1.5 leading-relaxed max-h-60 overflow-y-auto pr-1">
+        <ul class="text-[12px] space-y-1.5 leading-relaxed flex-1 min-h-0 overflow-y-auto pr-1">
           <li class="flex gap-2">
             <span class="text-emerald-600 shrink-0">✓</span>
             <span class="text-zinc-500">基礎架構（Vue 3 + Vite + Pinia）</span>
@@ -262,6 +478,30 @@ const store = useMoneyStore()
           <li class="flex gap-2">
             <span class="text-emerald-600 shrink-0">✓</span>
             <span class="text-zinc-500">資料補錄：2013 / 2021 / 2023 股票買進交易（63 筆）</span>
+          </li>
+          <li class="flex gap-2">
+            <span class="text-emerald-600 shrink-0">✓</span>
+            <span class="text-zinc-500">全站財務術語統一化（實際收入/支出、資金轉移/回收、淨收益/淨投資、理論現金變動/實際現金變動/實際資金變動）</span>
+          </li>
+          <li class="flex gap-2">
+            <span class="text-emerald-600 shrink-0">✓</span>
+            <span class="text-zinc-500">圖表頁：全面術語更名 + 現金變動雙線圖（Δ實際 vs Δ理論）</span>
+          </li>
+          <li class="flex gap-2">
+            <span class="text-emerald-600 shrink-0">✓</span>
+            <span class="text-zinc-500">關於頁：2×2 等高格局 + 各頁面說明 + 專有名詞說明面板</span>
+          </li>
+          <li class="flex gap-2">
+            <span class="text-emerald-600 shrink-0">✓</span>
+            <span class="text-zinc-500">DB 清理：32 筆 mode=現金支出/cno=13 錯誤歸類修正</span>
+          </li>
+          <li class="flex gap-2">
+            <span class="text-emerald-600 shrink-0">✓</span>
+            <span class="text-zinc-500">圖表頁：月別淨收益/淨投資 — 標籤加「(月)」+ 資料表改月度值 + 修正缺月假月減 + 淨收益回歸「實際收入−實際支出」</span>
+          </li>
+          <li class="flex gap-2 mt-2">
+            <span class="text-blue-500 shrink-0">▶</span>
+            <span class="text-zinc-700 dark:text-zinc-200 font-medium">圖表頁 Tab B 歷年趨勢 深化</span>
           </li>
           <li class="flex gap-2 mt-2">
             <span class="text-blue-500 shrink-0">▶</span>

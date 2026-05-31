@@ -11,6 +11,22 @@ export const useMoneyStore = defineStore('money', () => {
   const loading = ref(false)
   const error = ref('')
   const lastSaved = ref('')
+  const diskLastModified = ref(0)   // 磁碟檔案的 lastModified timestamp
+  const diskReloaded = ref(false)   // 自動重載提示（短暫為 true）
+
+  async function checkDiskReload() {
+    if (!fileHandle.value) return
+    try {
+      const f = await fileHandle.value.getFile()
+      if (f.lastModified !== diskLastModified.value) {
+        diskLastModified.value = f.lastModified
+        db.value = await openDbFromFile(f)
+        refreshAll()
+        diskReloaded.value = true
+        setTimeout(() => { diskReloaded.value = false }, 3000)
+      }
+    } catch { /* 忽略權限/IO 錯誤 */ }
+  }
 
   const classes = ref([])
   const subjects = ref([])
@@ -154,6 +170,7 @@ export const useMoneyStore = defineStore('money', () => {
       db.value = await openDbFromFile(file)
       fileName.value = file.name
       fileHandle.value = handle
+      diskLastModified.value = file.lastModified
       lastSaved.value = ''
       refreshAll()
     } catch (e) {
@@ -621,6 +638,8 @@ export const useMoneyStore = defineStore('money', () => {
     budgetItems,
     classBuckets,
     BUCKETS,
+    diskReloaded,
+    checkDiskReload,
     openFile,
     saveFile,
     refreshAll,

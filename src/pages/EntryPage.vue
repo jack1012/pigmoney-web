@@ -3,6 +3,7 @@ import { ref, computed, onMounted, onUnmounted, onActivated, nextTick, watch } f
 import { AgGridVue } from 'ag-grid-vue3'
 import { themeQuartz } from 'ag-grid-community'
 import { useMoneyStore } from '../stores/money.js'
+import { MODE_OPTIONS, modeLabel } from '../lib/modeLabel.js'
 
 const store = useMoneyStore()
 
@@ -63,7 +64,7 @@ const columnDefs = computed(() => [
   { field: 'date',        headerName: '日期',   width: 105, sort: 'desc' },
   { field: 'className',   headerName: '類別',   width: 90 },
   { field: 'subjectName', headerName: '子項目', width: 110 },
-  { field: 'mode',        headerName: '類型',   width: 100 },
+  { field: 'mode',        headerName: '類型',   width: 100, valueFormatter: (p) => modeLabel(p.value) },
   { field: 'spend',       headerName: '金額',   width: 100, type: 'numericColumn', valueFormatter: (p) => fmt(p.value) },
   { field: 'note',        headerName: '備註',   flex: 1, minWidth: 150 },
 ])
@@ -224,9 +225,9 @@ watch(() => store.pendingEditMno, (v) => { if (v) consumePendingEdit() })
 
           <label class="field-label">類型:</label>
           <select v-model="form.mode" class="field">
-            <option>現金支出</option>
-            <option>信用卡支出</option>
-            <option>收入</option>
+            <option v-for="opt in MODE_OPTIONS" :key="opt.value" :value="opt.value">
+              {{ opt.label }}
+            </option>
           </select>
 
           <label class="field-label">金額:</label>
