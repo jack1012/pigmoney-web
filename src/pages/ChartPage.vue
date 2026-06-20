@@ -791,7 +791,10 @@ const overviewRows = computed(() => {
     { label: '　想要',       color: '#f59e0b', indent: true, fn: i => fmtTw1(bucketExpenseAt(i, 'want')) },
     { label: '　投資損失',   color: '#8b5cf6', indent: true, fn: i => fmtTw1(lossAt(i)) },
     { label: '淨收益',   color: '#f59e0b', bold: true, fn: i => fmtTw1(yd[i].sur) },
-    { label: '理論現金變動', color: '#0891b2', bold: true, fn: i => fmtTw1(yd[i].sur - yearInvest(histYears.value[i])) },
+    { label: '淨投資',   color: '#8b5cf6', bold: true, fn: i => fmtTw1(yearInvest(histYears.value[i])) },
+    { label: '　資金轉移', color: '#ef4444', indent: true, fn: i => fmtTw1(yearInvestOut(histYears.value[i])) },
+    { label: '　資金回收', color: '#10b981', indent: true, fn: i => fmtTw1(yearInvestIn(histYears.value[i])) },
+    { label: '理論現金變動', formula: '淨收益 − 淨投資', color: '#0891b2', bold: true, fn: i => fmtTw1(yd[i].sur - yearInvest(histYears.value[i])) },
     { label: '實際資金變動', color: '#06b6d4', bold: true, fn: i => fmtTw1(histCashGrowth.value[i] + histStockGrowth.value[i]) },
     { label: '　實際現金變動', color: '#06b6d4', indent: true, fn: i => fmtTw1(histCashGrowth.value[i]) },
     { label: '　實際股票變動', color: '#8b5cf6', indent: true, fn: i => fmtTw1(histStockGrowth.value[i]) },
@@ -2752,6 +2755,10 @@ watch(
                           row.indent ? 'pl-5 text-zinc-400 dark:text-zinc-500' : '',
                         ]">
                       {{ row.label }}
+                      <span v-if="row.formula"
+                            class="block font-normal text-zinc-400 dark:text-zinc-500 text-[10px] leading-tight">
+                        {{ row.formula }}
+                      </span>
                     </td>
                     <td v-for="(y, i) in histYears" :key="y"
                         class="py-1 px-2 text-right tabular-nums"
