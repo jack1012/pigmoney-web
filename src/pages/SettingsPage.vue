@@ -2,6 +2,60 @@
 import { useMoneyStore } from '../stores/money.js'
 
 const store = useMoneyStore()
+
+function errorTime(value) {
+  return new Date(value).toLocaleString('zh-TW', {
+    month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit',
+  })
+}
+
+async function copyErrorReport(report) {
+  try {
+    await navigator.clipboard.writeText(store.formatSystemErrorReport(report))
+  } catch {
+    alert('複製失敗，請改用「匯出全部」下載文字檔')
+  }
+}
+
+function exportErrorReports() {
+  const content = store.errorReports
+    .map((report) => store.formatSystemErrorReport(report))
+    .join('\n\n------------------------------\n\n')
+  const blob = new Blob([content], { type: 'text/plain;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = `pigmoney-error-reports-${new Date().toISOString().slice(0, 10)}.txt`
+  link.click()
+  URL.revokeObjectURL(url)
+}
+
+function clearErrorReports() {
+  if (confirm('確定清除全部系統錯誤紀錄？')) store.clearSystemErrorReports()
+}
+
+function exportReportSource() {
+  store.loadAllBudgets()
+  const payload = {
+    packageType: 'pigmoney-source',
+    schemaVersion: 1,
+    generatedAt: new Date().toISOString(),
+    transactions: store.transactions,
+    classes: store.classes,
+    subjects: store.subjects,
+    classBuckets: store.classBuckets,
+    assetAccounts: store.assetAccounts,
+    assetSnapshots: store.assetSnapshots,
+    budgetItems: store.allBudgetItems,
+  }
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = `pigmoney-source-${new Date().toISOString().slice(0, 10)}.json`
+  link.click()
+  URL.revokeObjectURL(url)
+}
 </script>
 
 <template>
@@ -28,7 +82,7 @@ const store = useMoneyStore()
                 <span v-if="store.lastSaved" class="text-[11px] text-emerald-600 dark:text-emerald-400 self-center">
                   已存 {{ store.lastSaved }}
                 </span>
-                <button class="btn !text-[11px] !py-0.5 !px-2" disabled>匯出 JSON</button>
+                <button class="btn !text-[11px] !py-0.5 !px-2" :disabled="!store.db" @click="exportReportSource">匯出年報資料</button>
                 <button class="btn !text-[11px] !py-0.5 !px-2" disabled>匯出 Excel</button>
               </div>
             </div>
@@ -44,6 +98,32 @@ const store = useMoneyStore()
               <dt class="text-zinc-500 pr-3">子項目數量</dt>
               <dd>{{ store.subjects.length }} 個</dd>
             </dl>
+          </section>
+
+          <section class="panel col-span-2">
+            <div class="flex items-center gap-2 mb-1.5">
+              <span class="panel-title !mb-0">系統錯誤回報</span>
+              <span class="text-[11px] text-zinc-400">保留最近 {{ store.errorReports.length }} / 20 筆</span>
+              <div class="ml-auto flex gap-1.5">
+                <button class="btn !text-[11px] !py-0.5 !px-2" :disabled="!store.errorReports.length" @click="exportErrorReports">匯出全部</button>
+                <button class="btn !text-[11px] !py-0.5 !px-2" :disabled="!store.errorReports.length" @click="clearErrorReports">清除</button>
+              </div>
+            </div>
+            <p v-if="!store.errorReports.length" class="text-[11px] text-zinc-400">
+              目前沒有錯誤紀錄。錯誤只保存在這台瀏覽器，不會自動上傳。
+            </p>
+            <div v-else class="max-h-24 overflow-y-auto space-y-1 pr-1">
+              <div
+                v-for="report in store.errorReports"
+                :key="report.id"
+                class="grid grid-cols-[105px_55px_1fr_auto] gap-2 items-center text-[11px] border-b border-zinc-100 dark:border-zinc-700 pb-1"
+              >
+                <span class="text-zinc-400">{{ errorTime(report.occurredAt) }}</span>
+                <span class="text-zinc-500">{{ report.page }}</span>
+                <span class="truncate text-red-600 dark:text-red-400" :title="report.message">{{ report.message }}</span>
+                <button class="btn !text-[10px] !py-0 !px-1.5" @click="copyErrorReport(report)">複製</button>
+              </div>
+            </div>
           </section>
         </div>
 
@@ -173,7 +253,7 @@ const store = useMoneyStore()
               </div>
               <div class="text-[10px] text-zinc-500 mt-0.5 leading-relaxed">
                 根據 DB 已記錄的交易，理論上現金應該變動多少。<br>
-                <span class="font-medium text-zinc-600 dark:text-zinc-400">實際現金變動 − 理論實際現金變動 = 未記錄的現金流</span>（如怡亭凱基薪水直扣、現金交易漏記）。<br>
+                <span class="font-medium text-zinc-600 dark:text-zinc-400">實際現金變動 − 理論實際現金變動 = 未記錄的現金流</span>（如定期定額薪資直扣、現金交易漏記）。<br>
                 兩者差距越大，代表帳目越不完整。
               </div>
             </div>
@@ -181,7 +261,7 @@ const store = useMoneyStore()
 
           <!-- 備註 -->
           <div class="text-[10px] text-zinc-400">
-            💡 怡亭凱基股票薪水直接扣款（不過銀行），故實際收入 = 實領薪資；年底財報補認列實質收入（含扣款）。
+            💡 定期定額投資由薪資直接扣款（不經銀行），故實際收入 = 實領薪資；年底財報補認列實質收入（含扣款）。
           </div>
         </div>
       </section>
@@ -254,9 +334,9 @@ const store = useMoneyStore()
                 <li>· 預算 bug 修正：sno=0（class 總額）與 sno&gt;0（子項）重複加總 — 採 BudgetPage histClassBudget 規則（優先 sno=0，無則加總 sno&gt;0）</li>
                 <li>· 資產頁：編輯模式 latestDate 加「上個月底」上限（本月未到月底時 KPI 不抓未完整資料）</li>
                 <li>· 資產頁：getMonthlyPlaceholder 當年度未到月份留白；既有月份顯示「~上月值」估值</li>
-                <li>· 資產頁：加 inline「(改名)」按鈕、DB 改名：房屋→桃園房屋、汽車→Model 3、Model 3 折舊</li>
-                <li>· 資料補錄：2021 年 6 筆股票買進（台積電 4 筆 + 易飛網 + 雄獅，合計 244 萬，對應該年投資資產年增）+ 2023 年 1 筆迅得</li>
-                <li>· 資料補錄：2013 年 55 筆股票買進（富邦金/玉山金/台積電/中石化/國泰金/群創/南光/世界/群益證/元富證 等，合計約 295 萬）</li>
+                <li>· 資產頁：加 inline「(改名)」按鈕，整理不動產、交通工具與折舊項目名稱</li>
+                <li>· 資料補錄：補齊部分歷史投資交易，並核對對應年度的投資資產變動</li>
+                <li>· 資料補錄：補齊較早年度投資交易，完成年度投資紀錄核對</li>
                 <li>· 記帳哲學確立：投資採 A 法（全額進出），mode='信用卡支出' 區分資產搬移 vs 一般消費</li>
                 <li>· Store 新增 ChartPage 用 SQL 聚合：yearCnoSpend / yearCnoSnoSpend / yearMonthCnoSpend / yearMonthInvest / yearInvestSpend</li>
                 <li>· Chart.js valueLabelPlugin 自製 — 預算數字標柱頂上方（灰）、實際數字標柱底部</li>
@@ -273,7 +353,7 @@ const store = useMoneyStore()
                 <li>· ChartPage：yearInvestSpend / yearMonthInvest 改算「淨投資」= 信用卡支出 − 信用卡收入</li>
                 <li>· 賣股拆兩筆：本金 → mode='信用卡收入'/cno=14/sno=101；獲利 → mode='收入'/cno=13/sno=66 資本利得</li>
                 <li>· 配息/股利 → 維持 cno=13/sno=64 投資利得（既有用法不變）</li>
-                <li>· <strong>資料補錄</strong>：71 筆歷年賣股逐筆寫入 — 獲利 38 + 虧損 28 + 既有跳過 5；刪除 2 筆合併紀錄 (mno 26342/27021)；mno=30309 配息誤分類 sno 66→64</li>
+                <li>· <strong>資料補錄</strong>：歷年賣股逐筆拆帳，移除重複合併紀錄並修正配息誤分類</li>
                 <li>· cno=22「資本損失」改名「投資損失」（sno=272 股票 / 273 基金 保留）</li>
                 <li>· ChartPage：yearExpense 排除投資桶(save) + 投資損失(cno=22)，一般支出真正乾淨</li>
                 <li>· ChartPage：KPI 4 卡 → 5 卡（加投資損益）；新增 yearInvestPnL = sno=64 + sno=66 − cno=22</li>
@@ -299,13 +379,13 @@ const store = useMoneyStore()
                 <li>· 「資金變動」KPI = (cash + stock) YoY；過去年份用 12-31 vs 12-31（同 Tab B 比對表），當前年份 fallback 最新月度 vs 上年 12-31（KPI 副標標註日期 + 星號提示）</li>
                 <li>· 全頁名稱統一「資金變動」（取代「資金變化」）：KPI 卡 + Tab B 圖 panel-title</li>
                 <li>· Tab A 底部新增「💧 月別資金變動」圖：現金/投資（從 snapshot YoY）+ 實際投資買入/賣出（從 money 表 mode='信用卡支出/收入'）+ 合計線；snapshot 缺月顯示 — </li>
-                <li>· 月別資金變動加「怡亭凱基」line series（粉 #ec4899）：追蹤 怡亭-凱基股票 帳戶月增，反映 2023 年後定期定額金額</li>
-                <li>· DB 重組（方案 A）：cno=14 投資擴為「投資/資產轉換」class；新增 sno=280 房貸本金 + sno=281 借款；移動胡安東借款 + 房貸 96 筆過來；cno=8/sno=81 改名「房貸利息」（保留待用）</li>
+                <li>· 月別資金變動新增「定期定額帳戶」line series（粉 #ec4899）：追蹤專用投資帳戶月增</li>
+                <li>· DB 重組（方案 A）：投資擴為「投資/資產轉換」類別；新增房貸本金與借款子項，移動親友借款及房貸紀錄；利息項目獨立保留</li>
                 <li>· README 重寫：以家庭 CFO 操作指南取代舊「記帳哲學」段落；雙軌分類（紅/綠/白）+ 自由現金流 + 年度資產負債表</li>
                 <li>· KPI 4 卡改名（CFO 統一名詞）：實質收入 / 實質支出 / 淨收益 / 實際現金變動；公式：淨收益 = 實質收入 − 實質支出；實際現金變動 = 淨收益 + (投資收入 − 投資支出)，純現金流不含未實現損益</li>
                 <li>· Tab B 比對表名詞同步：總收入→實質收入；支出→實質支出；結餘→淨收益（「資金變動」保留，asset_snapshot 來源不同）</li>
-                <li>· 補錄股票本金回流：71 筆 mode='信用卡收入' / cno=14/sno=101 共 16,620,351 — 完整對齊 Excel 賣股本金 (含獲利 43 + 損失 28 筆)</li>
-                <li>· 新 sno=282 動產購置；mno=27534 TESLA Model 3 (1,609,930) 從 cno=21/sno=240 → cno=14/sno=282/mode='信用卡支出'（綠軸資產搬移）</li>
+                <li>· 補錄股票本金回流：歷年賣股本金逐筆對齊，並區分獲利與損失</li>
+                <li>· 新增動產購置子項；家庭交通工具由一般專案支出改列資產搬移</li>
                 <li>· overviewRows / histYearData 簡化（exp 已含 loss，不再 expWithLossAt）</li>
               </ul>
             </div>
@@ -324,7 +404,7 @@ const store = useMoneyStore()
               <ul class="space-y-0.5 leading-relaxed pl-2">
                 <li>· 預算頁：budget schema（budget_year / budget_item / budget_project / budget_class_bucket）</li>
                 <li>· 預算頁：樹狀表格 inline 編輯，支援算式</li>
-                <li>· 預算頁：收入歸類修正（82 筆政德薪水 → 怡亭薪水）</li>
+                <li>· 預算頁：修正家庭成員薪資的收入歸類</li>
                 <li>· 預算頁：2020–2026 年度比例設定、收入預估寫入</li>
                 <li>· 預算頁：版面重整 — 收入預估（橫式）→ 年度設定 → 6 KPI → 月例行預算表</li>
                 <li>· 預算頁：6 KPI 橫列，含總收入/生活/固定/想要/投資/存款推算</li>
@@ -336,7 +416,7 @@ const store = useMoneyStore()
                 <li>· 預算頁：存款推算欄三列各自計算說明（總收入−四桶位 / 100%−四桶位% / 設定預算−已設預算）</li>
                 <li>· 預算頁：已設預算區塊（原月例行預算表）改為預設只顯示第一階層，每類別 ▶/▼ 展開子項目，含全部展開/收合</li>
                 <li>· 預算頁：上下兩區塊以「細項預算編列」分隔線區分</li>
-                <li>· 資料：購車項目合併（11/74 共 36,180 → 15/240，總計 1,646,110；budget_item 累加）</li>
+                <li>· 資料：合併交通工具相關項目，並正確累加 budget_item</li>
                 <li>· 統計頁：編修模式加「↶ 回上一步」按鈕（undo stack 20 步）</li>
                 <li>· 統計頁：刪除按鈕移到每列最左（pinned），confirm 顯示完整資訊</li>
                 <li>· 記帳頁：本月清單改用 AG Grid，樣式統一同統計頁；刪除按鈕在最左；選中列藍底反白</li>
@@ -357,19 +437,19 @@ const store = useMoneyStore()
                 <li>· 預算頁：工具列「📥 匯出 JSON」按鈕，匯出當前年度預算（含 budget_year/budget_item/buckets + class/subject 名稱）</li>
                 <li>· 資料填入：2020–2026 各年度類別設定預算 77 筆</li>
                 <li>· 資料填入：2020–2026 類別 + 子項目註記（含算式/說明，多行 textarea 顯示）約 200+ 筆</li>
-                <li>· 資料：教育新增子項目「博士班」(cno=5, sno=264)，2025/2026 預算各 40000；才藝費註記移除博士班字樣</li>
-                <li>· 資料重組：購車 (15/74、15/240) 合併並改名「交通工具」搬到 cno=21 專案項目-（共 5 筆 $1,646,110）</li>
-                <li>· 資料重組：屋頂整修 (15/204) 改名「房屋工程」搬到 cno=21（1 筆 $171,000）</li>
-                <li>· 資料重組：新洗衣機 (15/206) 合併至 cno=21/256 衛生設備（2024-2026 預算相加）</li>
-                <li>· 資料重組：旅遊準備金 (15/251) 合併至 15/210 旅遊票卷</li>
-                <li>· 資料清理：刪除無交易子項目 15/110 IPHONE17、15/238 生活用品、15/249 其他</li>
-                <li>· 旅遊專案改名規則：年份-地點 — 102 拆 2024-香港迪士尼 + 2026-香港迪士尼；244/106/109 → 2023/2025/2026-美國LA之旅</li>
-                <li>· 旅遊專案拆分：250 出國 41 筆拆成 2009-希臘 / 2010-韓國 / 2011-土耳其 / 2012-峇里島 / 2013-韓國 / 2014-美國（含 2013 護照+機票+2014 國際駕照），250 子項目已刪</li>
-                <li>· 資料備份：data/budget_export.json、money_merged.sqlite.bak_before_merge_purchase、bak_before_2026_notes、bak_before_class_budget、bak_before_cleanup_merge、bak_before_split_overseas</li>
+                <li>· 資料：教育類新增進修子項目，並調整相關預算註記</li>
+                <li>· 資料重組：合併交通工具相關預算與項目，移至專案類別</li>
+                <li>· 資料重組：房屋工程相關項目重新分類</li>
+                <li>· 資料重組：家用設備項目合併，跨年度預算正確累加</li>
+                <li>· 資料重組：合併重複的旅遊預算項目</li>
+                <li>· 資料清理：刪除無交易的未使用子項目</li>
+                <li>· 旅遊專案改名規則：依年份與主題統一命名</li>
+                <li>· 旅遊專案拆分：歷年海外旅遊依年度拆分，刪除舊彙總子項目</li>
+                <li>· 資料備份：建立預算與資料調整前的完整備份</li>
                 <li>· 版本管理：git init + .gitignore（排除 *.sqlite/*.bak/截圖/個人 csv/docx/json/暫存腳本），第一個 commit 鎖住 26 個 source/config/docs</li>
-                <li>· GitHub repo 建立：jack1012/pigmoney-web（初為 private，部署需要改 public）</li>
+                <li>· GitHub repository 建立，並完成部署權限設定</li>
                 <li>· GitHub Pages 部署：vite.config.js 加 base '/pigmoney-web/'，建 .github/workflows/deploy.yml（push 到 master 自動 build + deploy）</li>
-                <li>· 線上網址：<a href="https://jack1012.github.io/pigmoney-web/" target="_blank" class="text-blue-500 underline">jack1012.github.io/pigmoney-web</a>（每次 git push 自動更新，約 30-60 秒）</li>
+                <li>· GitHub Pages 線上版本：每次 git push 後自動更新</li>
               </ul>
             </div>
             <div>
@@ -384,18 +464,18 @@ const store = useMoneyStore()
                 <li>· DB 資料修正：32 筆 mode=現金支出 且 cno=13（收入類）錯誤歸類 — 29 筆移至 cno=1 食，1 筆改 mode=收入，1 筆改 cno=3 電子用品，1 筆刪除</li>
                 <li>· StatsPage：類型篩選按鈕更名並重排（實際支出 / 實際收入 / 資金轉移 / 資金回收）</li>
                 <li>· SettingsPage 版面大改：2×2 全頁等高格局（grid-rows-2，h=100vh-1.5rem）；資料庫+資料庫狀態並列；新增「📚 各頁面說明」；「📖 專有名詞說明」收錄完整術語定義與對帳工具說明</li>
-                <li>· DB 重複記錄全庫清理（money_merged.sqlite）：2009–2024 共 30 筆完全重複（含 2013 富邦金買進 4 筆確認為真實交易已還原）</li>
-                <li>· 2025 年對帳分析：實際現金變動 +229萬 vs 理論現金變動 +211萬，差距 ~18萬 = <strong>已知缺口</strong>，成因：美國行以家裡美金現鈔支付（~$183,957 NTD），非從銀行帳戶領出，故不進資產快照，不處理</li>
+                <li>· DB 重複記錄全庫清理：移除完全重複資料，並還原經確認的真實交易</li>
+                <li>· 年度對帳分析：確認一筆<strong>已知缺口</strong>，來源為境外現金支出未經銀行帳戶；列為會計註記，不修改原始資料</li>
                 <li>· <strong>下午：月別淨收益/淨投資圖修正</strong> — 圖例與資料表標籤全加「(月)」：淨收益(月)/實際收入(月)/實際支出(月)、淨投資(月)/資金轉移(月)/資金回收(月)，明確區分月度 vs 累積折線</li>
                 <li>· 月別資料表改顯示「月度值」而非累積：淨收益表改用 curMonthlySeries.sur；淨投資表新增 curMonthInvNet computed；累積量僅保留給上方折線圖</li>
-                <li>· 修正 2026 淨收益(月) 顯示 −142.3萬 異常：curMonthlyFund 加 stockFound/kaijiFound 旗標，快照缺月（如 1 月無凱基/股票）不再被當成巨額月減</li>
-                <li>· 修正 淨收益(月) 公式：移除「怡亭凱基股票月增」項（sur = 收入＋凱基−支出 → 收入−支出），對齊定義「淨收益 = 實際收入 − 實際支出」；修正歷年 12 月誤顯示為正值</li>
+                <li>· 修正淨收益(月)異常：增加快照存在旗標，定期定額帳戶缺月時不再被誤判為巨額月減</li>
+                <li>· 修正淨收益(月)公式：移除定期定額帳戶月增項，回歸「實際收入 − 實際支出」；修正年底月份誤顯示為正值</li>
                 <li>· 建立專案 codebase CLAUDE.md（pigmoney-web 根目錄，非上午的術語定義表）：指令/架構/資料流/DB schema/mode 值映射/財務名詞/node 腳本/慣例，附於 12 條規則之下</li>
               </ul>
             </div>
           </div>
 
-          <p class="text-zinc-400">jack · uno = 1</p>
+          <p class="text-zinc-400">本機單一使用者模式</p>
         </div>
       </section>
 
@@ -477,7 +557,7 @@ const store = useMoneyStore()
           </li>
           <li class="flex gap-2">
             <span class="text-emerald-600 shrink-0">✓</span>
-            <span class="text-zinc-500">資料補錄：2013 / 2021 / 2023 股票買進交易（63 筆）</span>
+            <span class="text-zinc-500">資料補錄：歷史投資交易整理與核對</span>
           </li>
           <li class="flex gap-2">
             <span class="text-emerald-600 shrink-0">✓</span>

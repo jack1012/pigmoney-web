@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, shallowRef, watch, onMounted } from 'vue'
+import { ref, computed, shallowRef, watch, onMounted, onUnmounted } from 'vue'
 import { useMoneyStore } from './stores/money.js'
 import EntryPage from './pages/EntryPage.vue'
 import StatsPage from './pages/StatsPage.vue'
@@ -12,6 +12,7 @@ import SettingsPage from './pages/SettingsPage.vue'
 const store = useMoneyStore()
 const currentTab = ref('entry')
 const isDark = ref(false)
+const errorCopyStatus = ref('')
 
 const tabs = shallowRef([
   { id: 'entry', label: '記帳', component: EntryPage },
@@ -27,14 +28,48 @@ const activeComponent = computed(
   () => tabs.value.find((t) => t.id === currentTab.value)?.component,
 )
 
+function currentPageLabel() {
+  return tabs.value.find((tab) => tab.id === currentTab.value)?.label ?? currentTab.value
+}
+
+function handleWindowError(event) {
+  store.recordSystemError(
+    event.message || '未預期的瀏覽器錯誤',
+    currentPageLabel(),
+    '未處理錯誤',
+    event.error?.stack || '',
+  )
+}
+
+function handleUnhandledRejection(event) {
+  const reason = event.reason
+  store.recordSystemError(
+    reason?.message || String(reason || '未處理的非同步錯誤'),
+    currentPageLabel(),
+    '非同步錯誤',
+    reason?.stack || '',
+  )
+}
+
 onMounted(() => {
   isDark.value = localStorage.getItem('theme') === 'dark'
+  window.addEventListener('error', handleWindowError)
+  window.addEventListener('unhandledrejection', handleUnhandledRejection)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('error', handleWindowError)
+  window.removeEventListener('unhandledrejection', handleUnhandledRejection)
 })
 
 watch(isDark, (v) => {
   document.documentElement.classList.toggle('dark', v)
   localStorage.setItem('theme', v ? 'dark' : 'light')
 }, { immediate: true })
+
+watch(() => store.error, (message) => {
+  if (message) store.recordSystemError(message, currentPageLabel())
+})
 
 // 跨頁切換 tab（StatsPage 點修改 → 切到 EntryPage）
 watch(() => store.requestTabSwitch, (v) => {
@@ -51,6 +86,23 @@ function pickFile() {
 function switchTab(id) {
   currentTab.value = id
   store.checkDiskReload()
+}
+
+async function copyLatestErrorReport() {
+  const report = store.errorReports.find((item) => item.message === store.error)
+    ?? store.recordSystemError(store.error, currentPageLabel())
+  if (!report) return
+  try {
+    await navigator.clipboard.writeText(store.formatSystemErrorReport(report))
+    errorCopyStatus.value = '已複製'
+  } catch {
+    errorCopyStatus.value = '複製失敗'
+  }
+  setTimeout(() => { errorCopyStatus.value = '' }, 2000)
+}
+
+function openErrorReports() {
+  currentTab.value = 'settings'
 }
 </script>
 
@@ -94,8 +146,12 @@ function switchTab(id) {
     </header>
 
     <div v-if="store.loading" class="p-2 text-sm text-zinc-500">載入中…</div>
-    <div v-if="store.error" class="m-3 p-2 rounded border border-red-300 bg-red-50 dark:bg-red-900/20 dark:border-red-700 text-red-800 dark:text-red-300 text-sm">
-      {{ store.error }}
+    <div v-if="store.error" class="m-3 p-2 rounded border border-red-300 bg-red-50 dark:bg-red-900/20 dark:border-red-700 text-red-800 dark:text-red-300 text-sm flex items-center gap-2">
+      <span class="flex-1">{{ store.error }}</span>
+      <span v-if="errorCopyStatus" class="text-xs">{{ errorCopyStatus }}</span>
+      <button class="btn !text-[11px] !py-0.5 !px-2" @click="copyLatestErrorReport">複製回報</button>
+      <button class="btn !text-[11px] !py-0.5 !px-2" @click="openErrorReports">查看紀錄</button>
+      <button class="btn !text-[11px] !py-0.5 !px-2" title="關閉錯誤訊息" @click="store.dismissError()">關閉</button>
     </div>
 
     <main class="flex-1 min-h-0 overflow-hidden bg-white dark:bg-zinc-950">

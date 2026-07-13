@@ -3,6 +3,17 @@ import { ref, computed } from 'vue'
 import { openDbFromFile, rowsToObjects, ensureBudgetSchema } from '../lib/db.js'
 
 const JACK_UNO = 1
+const ERROR_REPORT_STORAGE_KEY = 'pigmoney-system-error-reports'
+const ERROR_REPORT_LIMIT = 20
+
+function loadErrorReports() {
+  try {
+    const reports = JSON.parse(localStorage.getItem(ERROR_REPORT_STORAGE_KEY) ?? '[]')
+    return Array.isArray(reports) ? reports.slice(0, ERROR_REPORT_LIMIT) : []
+  } catch {
+    return []
+  }
+}
 
 export const useMoneyStore = defineStore('money', () => {
   const db = ref(null)
@@ -10,9 +21,60 @@ export const useMoneyStore = defineStore('money', () => {
   const fileHandle = ref(null)
   const loading = ref(false)
   const error = ref('')
+  const errorReports = ref(loadErrorReports())
   const lastSaved = ref('')
   const diskLastModified = ref(0)   // 磁碟檔案的 lastModified timestamp
   const diskReloaded = ref(false)   // 自動重載提示（短暫為 true）
+
+  function recordSystemError(message, page = '未知頁面', type = '操作錯誤', details = '') {
+    const text = String(message ?? '').trim()
+    if (!text) return null
+
+    const now = new Date()
+    const latest = errorReports.value[0]
+    if (latest?.message === text && latest?.page === page
+      && now.getTime() - new Date(latest.occurredAt).getTime() < 1000) {
+      return latest
+    }
+
+    const report = {
+      id: `${now.getTime()}-${Math.random().toString(36).slice(2, 8)}`,
+      occurredAt: now.toISOString(),
+      type,
+      page,
+      message: text,
+      details: String(details ?? '').trim(),
+      url: window.location.href,
+      userAgent: navigator.userAgent,
+    }
+    errorReports.value = [report, ...errorReports.value].slice(0, ERROR_REPORT_LIMIT)
+    localStorage.setItem(ERROR_REPORT_STORAGE_KEY, JSON.stringify(errorReports.value))
+    return report
+  }
+
+  function formatSystemErrorReport(report) {
+    if (!report) return ''
+    return [
+      'pigmoney-web 系統錯誤回報',
+      `發生時間：${new Date(report.occurredAt).toLocaleString('zh-TW')}`,
+      `錯誤類型：${report.type}`,
+      `操作頁面：${report.page}`,
+      `錯誤訊息：${report.message}`,
+      report.details ? `技術細節：${report.details}` : '',
+      `網頁位置：${report.url}`,
+      `瀏覽器：${report.userAgent}`,
+      '說明：系統不會主動附加交易、金額或 SQLite 檔名。',
+    ].filter(Boolean).join('\n')
+  }
+
+  function dismissError() {
+    error.value = ''
+  }
+
+  function clearSystemErrorReports() {
+    errorReports.value = []
+    localStorage.removeItem(ERROR_REPORT_STORAGE_KEY)
+  }
 
   async function checkDiskReload() {
     if (!fileHandle.value) return
@@ -621,6 +683,7 @@ export const useMoneyStore = defineStore('money', () => {
     fileHandle,
     loading,
     error,
+    errorReports,
     lastSaved,
     classes,
     subjects,
@@ -639,6 +702,10 @@ export const useMoneyStore = defineStore('money', () => {
     classBuckets,
     BUCKETS,
     diskReloaded,
+    recordSystemError,
+    formatSystemErrorReport,
+    dismissError,
+    clearSystemErrorReports,
     checkDiskReload,
     openFile,
     saveFile,
