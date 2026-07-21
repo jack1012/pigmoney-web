@@ -12,7 +12,7 @@ import sqlite3
 import sys
 from collections import defaultdict
 
-DB = r'D:\Projects\pigmoney-web\data\money_merged.sqlite'
+DB = r'D:\Projects\pigmoney-web\.data\money_merged.sqlite'
 
 
 # ── 對應規則 ──────────────────────────────────────────

@@ -14,7 +14,7 @@ import sys
 from collections import OrderedDict
 
 # ── 來源檔案清單 ──────────────────────────────────────────
-DATA_DIR_LOCAL = r'D:\Projects\pigmoney-web\data'
+DATA_DIR_LOCAL = r'D:\Projects\pigmoney-web\.data'
 DATA_DIR_DROPBOX = r'F:\Dropbox\(0)money'
 
 # 主架構參考：類別與子項目順序以這個檔為主

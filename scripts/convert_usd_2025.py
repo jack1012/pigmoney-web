@@ -14,7 +14,7 @@
 import sqlite3
 import sys
 
-DB = r'D:\Projects\pigmoney-web\data\money_merged.sqlite'
+DB = r'D:\Projects\pigmoney-web\.data\money_merged.sqlite'
 RATE = 32.7
 SRC_NAME = '美國行2025LA(US)'
 DST_NAME = '美國行2025LA'

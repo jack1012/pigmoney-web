@@ -253,13 +253,38 @@ export const useMoneyStore = defineStore('money', () => {
         return
       }
       const data = db.value.export()
-      const writable = await fileHandle.value.createWritable()
+      let writable
+      try {
+        // 先刷新一次 handle state 快取
+        await fileHandle.value.getFile()
+        writable = await fileHandle.value.createWritable()
+      } catch (e) {
+        // 若遇到磁碟狀態改變或鎖定，刷新 handle 並延遲重試
+        const errMsg = String(e.message || e)
+        if (e.name === 'InvalidStateError' || errMsg.includes('state had changed') || errMsg.includes('ModificationError')) {
+          await fileHandle.value.getFile().catch(() => {})
+          await new Promise(r => setTimeout(r, 150))
+          writable = await fileHandle.value.createWritable()
+        } else {
+          throw e
+        }
+      }
+
       await writable.write(data)
       await writable.close()
+
+      // 存檔成功後更新本地上記錄的磁碟修改時間，避免 checkDiskReload 誤讀
+      try {
+        const updatedFile = await fileHandle.value.getFile()
+        diskLastModified.value = updatedFile.lastModified
+      } catch { /* 忽略 getFile 讀取異常 */ }
+
       const now = new Date()
       lastSaved.value = now.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
     } catch (e) {
-      error.value = '存檔失敗：' + (e.message || String(e))
+      const msg = '存檔失敗：' + (e.message || String(e))
+      error.value = msg
+      recordSystemError(msg, '儲存檔案', '存檔失敗', e.stack || String(e))
     }
   }
 

@@ -32,6 +32,8 @@ dist-ssr
 .vite/
 
 # 個人財務資料（嚴禁推上 GitHub）
+.data/
+data/
 *.sqlite
 *.sqlite.*
 *.bak*
@@ -64,3 +66,6 @@ __pycache__/
 !src/**/*.png
 !src/**/*.jpg
 
+# Agent / AI
+.claude/
+ErrorReport/

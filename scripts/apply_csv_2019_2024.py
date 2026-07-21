@@ -16,7 +16,7 @@ import sys
 from collections import Counter, defaultdict
 
 CSV_FILE = r'F:\Dropbox\(0)money\年度收支\2019-2024年度收支.csv'
-DB_FILE  = r'D:\Projects\pigmoney-web\data\money_merged.sqlite'
+DB_FILE  = r'D:\Projects\pigmoney-web\.data\money_merged.sqlite'
 
 YEAR_START = '2019'
 YEAR_END   = '2024'

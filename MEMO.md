@@ -5,74 +5,53 @@
 - sql.js（WASM，瀏覽器端 SQLite）
 - Tailwind CSS v4
 - AG Grid v35（統計頁）
-- 資料檔：`data/money_merged.sqlite`
+- 資料檔：`.data/money_merged.sqlite`
 
 ---
 
-## 第一階段：預算功能建立（完成）
+## v2.1.0 — 存檔機制修復 (2026-07-21)
+
+- **Bug fix**：修復 File System Access API 在背景同步或檔案狀態變更時發生的 `InvalidStateError`（存檔失敗）問題。
+- **存檔機制強化**：
+  - 寫入前主動呼叫 `fileHandle.getFile()` 刷新控制代碼快取狀態。
+  - 增加自動重試（Auto-Retry）機制，延遲 150ms 後重試 `createWritable()`。
+  - 寫入後同步更新磁碟修改時間戳記 `diskLastModified`，避開 `checkDiskReload` 誤判。
+- **開發日誌**：於 `SettingsPage.vue` 更新開發日誌與版本號標籤 `v2.1.0 (2026-07-21)`。
+
+---
+
+## v2.0.0 — 預算管理系統大改版與全站優化 (2026-05-23 ~ 2026-05-24)
 
 ### db.js — budget schema migration
 - 新增 `budget_year`、`budget_item`、`budget_project`、`budget_class_bucket` 四張表
 - 舊檔開啟時自動補欄位（ALTER TABLE IF NOT EXISTS 模式）
 
-### money.js — budget CRUD + 歷史統計
-- `loadBudget(year)`、`upsertBudgetYear`、`upsertBudgetItem`、`bulkUpsertBudgetItems`
-- `copyBudgetFromYear`（含年度比例複製）
-- `historicalSpend(cno, sno, years)` 回傳中位數/平均/最新年
-- `actualSpend`、`actualIncome`
-- `classBuckets` 桶位對應（life / fixed / want / save / income）
-
-### BudgetPage — 初版功能
-- 樹狀表格（類別 → 子項目），inline 編輯，支援算式
-- KPI 四大桶位卡片
-- 存款推算
-- 「📊 統計初值」一鍵以 3 年中位數填入空格
-- 「複製上年」按鈕
+### BudgetPage UI 改版與雙模式
+- 版面順序：收入預估 → 年度設定 → 6 KPI → 月例行預算表
+- 四大桶位（生活/固定/想要/投資）、比例金額雙向綁定
+- 存款推算 = 預估收入 − 預算支出
+- 歷年橫向比對模式，全站 Keep-Alive 與跨頁連動
 
 ---
 
-## 第二階段：資料修正 & UI 優化（完成）
+## v1.2.0 — 全站財務術語規範與對帳系統 (2026-05-31)
 
-### 資料修正
-- **Bug fix**：`copyBudgetFromYear` 引用已刪除的 `income` 欄位 → 已修正為含 ratio 欄位
-- **收入歸類修正**：直接對 SQLite 執行 UPDATE，將政德薪水中符合以下規則的 82 筆改歸怡亭薪水
-  - 備註含「怡亭」或「分紅」
-  - 金額 ≥ 60,000
-- **各年度比例設定**（budget_year，2020–2026）：
-  | 年 | 生活 | 固定 | 想要 | 投資 | 依據 |
-  |---|---|---|---|---|---|
-  | 2020 | 15% | 25% | 20% | 40% | 總240W |
-  | 2021 | 24% | 24% | 12% | 40% | 總250W |
-  | 2022 | 18% | 18% | 9%  | 55% | 總330W |
-  | 2023 | 15% | 17% | 15% | 53% | 總400W |
-  | 2024 | 15% | 17% | 15% | 53% | 同2023 |
-  | 2025 | 15% | 17% | 15% | 53% | 同2023 |
-  | 2026 | 18% | 18% | 25% | 40% | 總400W |
-- **收入預估寫入**（budget_item，依各年預算檔）：
-  | 年 | 怡亭薪水 | 政德薪水 | 投資利得 | 育兒津貼 | 資本利得 |
-  |---|---|---|---|---|---|
-  | 2021 | 209W | 50W | 7W | 6W | — |
-  | 2022 | 230W | 60W | 30W | — | 10W |
-  | 2023 | 300W | 60W | 30W | 10W | — |
-  | 2024 | 300W | 60W | 40W | 8.4W | — |
-  | 2025 | 300W | 60W | 40W | 8.4W | — |
-  | 2026 | 300W | 60W | 40W | — | — |
-- **備份**：`data/budget_export.json`（budget_year / budget_item / budget_class_bucket）
+- 雙軌財務術語對齊（實際收入/實際支出、資金轉移/資金回收、淨收益/淨投資、理論現金變動/實際現金變動/實際資金變動）
+- 現金變動雙線對帳圖（Δ實際 vs Δ理論）與 2×2 關於頁重構
 
-### BudgetPage UI 改版
-- 版面順序：收入預估 → 年度設定 → 6 KPI → 月例行預算表
-- 收入預估表改為橫向（子項目為欄），拿掉「實際」與「差距」
-- 年度設定：比例欄位標籤「儲蓄投資」改為「投資」
-- 年度總收入預算輸入改為**萬為單位**（輸入 400 = 4,000,000）
-- 6 張 KPI（單橫列）：總收入預算 / 生活類 / 固定類 / 想要 / 投資 / 存款推算
-  - 移除「已用」顯示，只保留預算面數字
-  - 存款推算 = 預估收入 − 預算支出
-- 月例行預算表：
-  - 移除「桶」欄
-  - 依四大區塊（生活類 / 固定類 / 想要 / 投資）加 section header
-  - 每區塊底部有小計列
-- **Bug fix**：`yearTotalBudget` 排除 income bucket，避免收入類別被計入支出總計
-- **全站**：`.field[type=number]` 隱藏 spinner 上下箭頭
+---
+
+## v1.1.0 — 視覺化分析圖表與拆帳法 (2026-05-25 ~ 2026-05-29)
+
+- Chart.js 圖表頁（Tab A 當年 / Tab B 歷年）建置
+- 投資拆帳法、AssetPage 資產月度快照追蹤、README CFO 操作指南
+
+---
+
+## v1.0.0 — 核心記帳與基礎架構上線 (2026-05-20 ~ 2026-05-22)
+
+- Vue 3 + Vite + Pinia 專案創立與 sql.js WASM SQLite 瀏覽器整合
+- EntryPage 記帳、StatsPage 統計、CategoryPage 分類與 File System Access API 本機自動存檔
 
 ---
 

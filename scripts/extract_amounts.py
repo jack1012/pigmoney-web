@@ -20,7 +20,7 @@ import re
 import sys
 from collections import Counter
 
-DB = r'D:\Projects\pigmoney-web\data\money_merged.sqlite'
+DB = r'D:\Projects\pigmoney-web\.data\money_merged.sqlite'
 YEAR_CUTOFF = '2019'  # <= 2019 才處理
 
 # 括弧內：純數字 或 N*M（甚至 N*M*K）
