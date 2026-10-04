@@ -271,9 +271,17 @@ function exportReportSource() {
       <section class="panel h-full flex flex-col min-h-0 overflow-hidden">
         <span class="panel-title">開發日誌</span>
         <div class="text-[12px] text-zinc-600 dark:text-zinc-400 space-y-3 flex-1 min-h-0 overflow-y-auto pr-1">
-          <p class="font-medium text-zinc-800 dark:text-zinc-200">家庭記帳本 v{{ APP_VERSION }} (2026-08-14) — 豬頭記帳網頁版</p>
+          <p class="font-medium text-zinc-800 dark:text-zinc-200">家庭記帳本 v{{ APP_VERSION }} (2026-10-04) — 豬頭記帳網頁版</p>
 
           <div class="space-y-3">
+            <div>
+              <p class="text-emerald-600 dark:text-emerald-400 font-semibold mb-0.5">v2.3.0 (2026-10-04) — 阻止自動重載覆蓋未存檔資料</p>
+              <ul class="space-y-0.5 leading-relaxed pl-2">
+                <li>· <strong>修復無聲資料遺失</strong>：自動重載原本會在磁碟檔案被外部改動時，直接用磁碟版取代記憶體資料庫，把尚未存檔的輸入一併蓋掉</li>
+                <li>· 新增未存檔狀態追蹤：存檔真正寫入磁碟才算乾淨，存檔失敗時維持未存檔狀態並擋下自動重載</li>
+                <li>· 偵測到衝突時於標題列顯示「⚠ 未存檔衝突」並提示處置方式（手動存檔寫入，或重新載入放棄）</li>
+              </ul>
+            </div>
             <div>
               <p class="text-emerald-600 dark:text-emerald-400 font-semibold mb-0.5">v2.2.0 (2026-08-14) — 存檔序列化與錯誤回報可追溯</p>
               <ul class="space-y-0.5 leading-relaxed pl-2">

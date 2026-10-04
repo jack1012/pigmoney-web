@@ -26,6 +26,8 @@ export const useMoneyStore = defineStore('money', () => {
   const lastSaved = ref('')
   const diskLastModified = ref(0)   // 磁碟檔案的 lastModified timestamp
   const diskReloaded = ref(false)   // 自動重載提示（短暫為 true）
+  const dirty = ref(false)           // 記憶體有修改但還沒成功寫入磁碟
+  const unsavedConflict = ref(false) // 有未存檔修改且磁碟已被外部改動，已阻止自動重載
 
   // extra：額外診斷欄位（來源 action、重試次數），供追查用
   function recordSystemError(message, page = '未知頁面', type = '操作錯誤', details = '', extra = {}) {
@@ -89,13 +91,24 @@ export const useMoneyStore = defineStore('money', () => {
     if (!fileHandle.value) return
     try {
       const f = await fileHandle.value.getFile()
-      if (f.lastModified !== diskLastModified.value) {
-        diskLastModified.value = f.lastModified
-        db.value = await openDbFromFile(f)
-        refreshAll()
-        diskReloaded.value = true
-        setTimeout(() => { diskReloaded.value = false }, 3000)
+      if (f.lastModified === diskLastModified.value) return
+
+      // 記憶體還有沒寫進磁碟的修改時，絕不可用磁碟版覆蓋——那會無聲丟掉剛輸入的資料。
+      // 改交給使用者決定：按「手動存檔」寫入自己的修改，或重新載入檔案放棄它們。
+      if (dirty.value) {
+        if (!unsavedConflict.value) {
+          unsavedConflict.value = true
+          error.value = '檔案已被外部修改，但本機還有未存檔的修改，已停止自動重載以免覆蓋。'
+            + '請按「手動存檔」寫入你的修改，或重新載入檔案以放棄這些修改。'
+        }
+        return
       }
+
+      diskLastModified.value = f.lastModified
+      db.value = await openDbFromFile(f)
+      refreshAll()
+      diskReloaded.value = true
+      setTimeout(() => { diskReloaded.value = false }, 3000)
     } catch { /* 忽略權限/IO 錯誤 */ }
   }
 
@@ -243,6 +256,8 @@ export const useMoneyStore = defineStore('money', () => {
       fileHandle.value = handle
       diskLastModified.value = file.lastModified
       lastSaved.value = ''
+      dirty.value = false
+      unsavedConflict.value = false
       refreshAll()
     } catch (e) {
       error.value = e.message || String(e)
@@ -269,6 +284,7 @@ export const useMoneyStore = defineStore('money', () => {
 
   // context：觸發存檔的來源 action，失敗時寫進錯誤回報以便定位是哪個操作
   function saveFile(context = '未標示') {
+    dirty.value = true
     const run = saveChain.catch(() => {}).then(() => writeDbToDisk(context))
     saveChain = run
     return run
@@ -310,6 +326,10 @@ export const useMoneyStore = defineStore('money', () => {
         const updatedFile = await fileHandle.value.getFile()
         diskLastModified.value = updatedFile.lastModified
       } catch { /* 忽略 getFile 讀取異常 */ }
+
+      // 真的寫進磁碟了才算乾淨；失敗時 dirty 保持 true，擋住 checkDiskReload 覆蓋
+      dirty.value = false
+      unsavedConflict.value = false
 
       const now = new Date()
       lastSaved.value = now.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
@@ -759,6 +779,8 @@ export const useMoneyStore = defineStore('money', () => {
     classBuckets,
     BUCKETS,
     diskReloaded,
+    dirty,
+    unsavedConflict,
     recordSystemError,
     formatSystemErrorReport,
     dismissError,

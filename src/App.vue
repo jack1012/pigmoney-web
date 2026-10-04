@@ -125,6 +125,7 @@ function openErrorReports() {
       </nav>
 
       <div class="ml-auto flex items-center gap-2 pb-1.5 self-center">
+        <span v-if="store.unsavedConflict" class="text-xs text-amber-500" title="檔案被外部修改，且本機有未存檔修改，已停止自動重載">⚠ 未存檔衝突</span>
         <span v-if="store.diskReloaded" class="text-xs text-cyan-500">↻ 已同步</span>
         <span v-else-if="store.lastSaved" class="text-xs text-emerald-600 dark:text-emerald-400">
           已存 {{ store.lastSaved }}
