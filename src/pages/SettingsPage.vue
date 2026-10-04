@@ -1,5 +1,6 @@
 <script setup>
 import { useMoneyStore } from '../stores/money.js'
+import { APP_VERSION } from '../lib/version.js'
 
 const store = useMoneyStore()
 
@@ -78,7 +79,7 @@ function exportReportSource() {
 
               <div class="col-span-12 flex gap-1.5 flex-wrap">
                 <button class="btn btn-primary !text-[11px] !py-0.5 !px-2" @click="store.openFile()">載入 .sqlite 檔</button>
-                <button class="btn !text-[11px] !py-0.5 !px-2" :disabled="!store.fileHandle" @click="store.saveFile()">手動存檔</button>
+                <button class="btn !text-[11px] !py-0.5 !px-2" :disabled="!store.fileHandle" @click="store.saveFile('手動存檔')">手動存檔</button>
                 <span v-if="store.lastSaved" class="text-[11px] text-emerald-600 dark:text-emerald-400 self-center">
                   已存 {{ store.lastSaved }}
                 </span>
@@ -270,9 +271,17 @@ function exportReportSource() {
       <section class="panel h-full flex flex-col min-h-0 overflow-hidden">
         <span class="panel-title">開發日誌</span>
         <div class="text-[12px] text-zinc-600 dark:text-zinc-400 space-y-3 flex-1 min-h-0 overflow-y-auto pr-1">
-          <p class="font-medium text-zinc-800 dark:text-zinc-200">家庭記帳本 v2.1.0 (2026-07-21) — 豬頭記帳網頁版</p>
+          <p class="font-medium text-zinc-800 dark:text-zinc-200">家庭記帳本 v{{ APP_VERSION }} (2026-08-14) — 豬頭記帳網頁版</p>
 
           <div class="space-y-3">
+            <div>
+              <p class="text-emerald-600 dark:text-emerald-400 font-semibold mb-0.5">v2.2.0 (2026-08-14) — 存檔序列化與錯誤回報可追溯</p>
+              <ul class="space-y-0.5 leading-relaxed pl-2">
+                <li>· <strong>修復存檔重疊</strong>：所有寫入改走同一條序列，避免兩次存檔同時操作檔案控制代碼而觸發 InvalidStateError</li>
+                <li>· 重試範圍從 createWritable 擴大到 write/close 全程，改為三次遞增退避，並在重試前中止半開的寫入</li>
+                <li>· 錯誤回報新增觸發來源、嘗試次數、程式版本與 build 時間，可直接判定失敗來自哪個操作、重試是否生效</li>
+              </ul>
+            </div>
             <div>
               <p class="text-emerald-600 dark:text-emerald-400 font-semibold mb-0.5">v2.1.0 (2026-07-21) — 磁碟存檔防護與系統錯誤追蹤</p>
               <ul class="space-y-0.5 leading-relaxed pl-2">

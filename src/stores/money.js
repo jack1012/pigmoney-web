@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { openDbFromFile, rowsToObjects, ensureBudgetSchema } from '../lib/db.js'
+import { APP_VERSION, BUILD_TIME } from '../lib/version.js'
 
 const JACK_UNO = 1
 const ERROR_REPORT_STORAGE_KEY = 'pigmoney-system-error-reports'
@@ -26,13 +27,15 @@ export const useMoneyStore = defineStore('money', () => {
   const diskLastModified = ref(0)   // 磁碟檔案的 lastModified timestamp
   const diskReloaded = ref(false)   // 自動重載提示（短暫為 true）
 
-  function recordSystemError(message, page = '未知頁面', type = '操作錯誤', details = '') {
+  // extra：額外診斷欄位（來源 action、重試次數），供追查用
+  function recordSystemError(message, page = '未知頁面', type = '操作錯誤', details = '', extra = {}) {
     const text = String(message ?? '').trim()
     if (!text) return null
 
     const now = new Date()
     const latest = errorReports.value[0]
-    if (latest?.message === text && latest?.page === page
+    // 來源不同就是不同事件，不可併記——否則會蓋掉「哪個操作失敗」這條線索
+    if (latest?.message === text && latest?.page === page && latest?.context === extra.context
       && now.getTime() - new Date(latest.occurredAt).getTime() < 1000) {
       return latest
     }
@@ -46,6 +49,9 @@ export const useMoneyStore = defineStore('money', () => {
       details: String(details ?? '').trim(),
       url: window.location.href,
       userAgent: navigator.userAgent,
+      appVersion: APP_VERSION,
+      buildTime: BUILD_TIME,
+      ...extra,
     }
     errorReports.value = [report, ...errorReports.value].slice(0, ERROR_REPORT_LIMIT)
     localStorage.setItem(ERROR_REPORT_STORAGE_KEY, JSON.stringify(errorReports.value))
@@ -61,6 +67,9 @@ export const useMoneyStore = defineStore('money', () => {
       `操作頁面：${report.page}`,
       `錯誤訊息：${report.message}`,
       report.details ? `技術細節：${report.details}` : '',
+      report.context ? `觸發來源：${report.context}` : '',
+      report.attempts ? `嘗試次數：${report.attempts}` : '',
+      `程式版本：${report.appVersion ?? '未記錄'}（build ${report.buildTime ?? '未記錄'}）`,
       `網頁位置：${report.url}`,
       `瀏覽器：${report.userAgent}`,
       '說明：系統不會主動附加交易、金額或 SQLite 檔名。',
@@ -134,14 +143,14 @@ export const useMoneyStore = defineStore('money', () => {
         [category, name, note ?? null, order_id ?? (maxOrder + 1)]
       )
     }
-    await loadAssets(); await saveFile()
+    await loadAssets(); await saveFile('upsertAssetAccount')
   }
 
   async function deleteAssetAccount(ano) {
     if (!db.value) return
     db.value.run('DELETE FROM asset_snapshot WHERE ano=?', [ano])
     db.value.run('DELETE FROM asset_account WHERE ano=?', [ano])
-    await loadAssets(); await saveFile()
+    await loadAssets(); await saveFile('deleteAssetAccount')
   }
 
   async function upsertAssetSnapshot({ date, ano, amount }) {
@@ -155,7 +164,7 @@ export const useMoneyStore = defineStore('money', () => {
         [date, ano, Math.round(Number(amount))]
       )
     }
-    await loadAssets(); await saveFile()
+    await loadAssets(); await saveFile('upsertAssetSnapshot')
   }
 
   async function bulkUpsertAssetSnapshots(items) {
@@ -168,13 +177,13 @@ export const useMoneyStore = defineStore('money', () => {
         [date, ano, Math.round(Number(amount))]
       )
     }
-    await loadAssets(); await saveFile()
+    await loadAssets(); await saveFile('bulkUpsertAssetSnapshots')
   }
 
   async function deleteAssetSnapshotDate(date) {
     if (!db.value) return
     db.value.run('DELETE FROM asset_snapshot WHERE date=?', [date])
-    await loadAssets(); await saveFile()
+    await loadAssets(); await saveFile('deleteAssetSnapshotDate')
   }
 
   // ── 預算狀態 ────────────────────────────────────────
@@ -244,8 +253,30 @@ export const useMoneyStore = defineStore('money', () => {
     }
   }
 
-  async function saveFile() {
+  // 存檔序列化用的 promise 鏈：每次寫入都接在前一次之後，避免多個
+  // createWritable()/close() 同時操作同一個 fileHandle。重疊寫入正是
+  // InvalidStateError（state had changed）的來源。
+  let saveChain = Promise.resolve()
+  const SAVE_MAX_ATTEMPTS = 3
+
+  // 只有 handle 狀態失效這類錯誤重試才有意義，其餘直接往外拋
+  function isStaleHandleError(e) {
+    const msg = String(e?.message || e)
+    return e?.name === 'InvalidStateError'
+      || msg.includes('state had changed')
+      || msg.includes('ModificationError')
+  }
+
+  // context：觸發存檔的來源 action，失敗時寫進錯誤回報以便定位是哪個操作
+  function saveFile(context = '未標示') {
+    const run = saveChain.catch(() => {}).then(() => writeDbToDisk(context))
+    saveChain = run
+    return run
+  }
+
+  async function writeDbToDisk(context) {
     if (!db.value || !fileHandle.value) return
+    let attempts = 0
     try {
       const permission = await fileHandle.value.requestPermission({ mode: 'readwrite' })
       if (permission !== 'granted') {
@@ -253,25 +284,26 @@ export const useMoneyStore = defineStore('money', () => {
         return
       }
       const data = db.value.export()
-      let writable
-      try {
-        // 先刷新一次 handle state 快取
-        await fileHandle.value.getFile()
-        writable = await fileHandle.value.createWritable()
-      } catch (e) {
-        // 若遇到磁碟狀態改變或鎖定，刷新 handle 並延遲重試
-        const errMsg = String(e.message || e)
-        if (e.name === 'InvalidStateError' || errMsg.includes('state had changed') || errMsg.includes('ModificationError')) {
-          await fileHandle.value.getFile().catch(() => {})
-          await new Promise(r => setTimeout(r, 150))
+
+      // write 與 close 必須一起納入重試：File System Access 是在 close() 才原子換檔，
+      // InvalidStateError 最常從 close() 丟出來，只包住 createWritable() 等於沒保護到。
+      for (;;) {
+        attempts += 1
+        let writable = null
+        try {
+          await fileHandle.value.getFile()        // 先刷新 handle 的 state 快取
           writable = await fileHandle.value.createWritable()
-        } else {
-          throw e
+          await writable.write(data)
+          await writable.close()
+          break
+        } catch (e) {
+          // 半開的 writable 會鎖住目標檔，重試前一定要先中止
+          if (writable) await writable.abort().catch(() => {})
+          if (attempts >= SAVE_MAX_ATTEMPTS || !isStaleHandleError(e)) throw e
+          await fileHandle.value.getFile().catch(() => {})
+          await new Promise((r) => setTimeout(r, 150 * attempts))   // 遞增退避
         }
       }
-
-      await writable.write(data)
-      await writable.close()
 
       // 存檔成功後更新本地上記錄的磁碟修改時間，避免 checkDiskReload 誤讀
       try {
@@ -284,7 +316,7 @@ export const useMoneyStore = defineStore('money', () => {
     } catch (e) {
       const msg = '存檔失敗：' + (e.message || String(e))
       error.value = msg
-      recordSystemError(msg, '儲存檔案', '存檔失敗', e.stack || String(e))
+      recordSystemError(msg, '儲存檔案', '存檔失敗', e.stack || String(e), { context, attempts })
     }
   }
 
@@ -317,7 +349,7 @@ export const useMoneyStore = defineStore('money', () => {
       [JACK_UNO, cno, sno ?? null, spend, date, note || '', mode],
     )
     refreshAll()
-    await saveFile()
+    await saveFile('addTransaction')
   }
 
   async function updateTransaction({ mno, cno, sno, spend, date, note, mode }) {
@@ -328,14 +360,14 @@ export const useMoneyStore = defineStore('money', () => {
       [cno, sno ?? null, spend, date, note || '', mode, mno, JACK_UNO],
     )
     refreshAll()
-    await saveFile()
+    await saveFile('updateTransaction')
   }
 
   async function deleteTransaction(mno) {
     if (!db.value) return
     db.value.run(`DELETE FROM money WHERE mno=? AND uno=?`, [mno, JACK_UNO])
     refreshAll()
-    await saveFile()
+    await saveFile('deleteTransaction')
   }
 
   // ── 類別 CRUD ─────────────────────────────────────────
@@ -344,14 +376,14 @@ export const useMoneyStore = defineStore('money', () => {
     const maxOrder = classes.value.length > 0 ? Math.max(...classes.value.map(c => c.order_id ?? 0)) : 0
     db.value.run(`INSERT INTO class (uno, name, order_id) VALUES (?, ?, ?)`, [JACK_UNO, name, maxOrder + 1])
     refreshAll()
-    await saveFile()
+    await saveFile('addClass')
   }
 
   async function renameClass(cno, name) {
     if (!db.value) return
     db.value.run(`UPDATE class SET name=? WHERE cno=? AND uno=?`, [name, cno, JACK_UNO])
     refreshAll()
-    await saveFile()
+    await saveFile('renameClass')
   }
 
   async function deleteClass(cno) {
@@ -359,7 +391,7 @@ export const useMoneyStore = defineStore('money', () => {
     db.value.run(`DELETE FROM subject WHERE cno=? AND uno=?`, [cno, JACK_UNO])
     db.value.run(`DELETE FROM class WHERE cno=? AND uno=?`, [cno, JACK_UNO])
     refreshAll()
-    await saveFile()
+    await saveFile('deleteClass')
   }
 
   async function saveClassOrder(orderedCnos) {
@@ -368,7 +400,7 @@ export const useMoneyStore = defineStore('money', () => {
       db.value.run(`UPDATE class SET order_id=? WHERE cno=? AND uno=?`, [i + 1, cno, JACK_UNO])
     })
     refreshAll()
-    await saveFile()
+    await saveFile('saveClassOrder')
   }
 
   // ── 子項目 CRUD ───────────────────────────────────────
@@ -378,14 +410,14 @@ export const useMoneyStore = defineStore('money', () => {
     const maxOrder = subs.length > 0 ? Math.max(...subs.map(s => s.order_id ?? 0)) : 0
     db.value.run(`INSERT INTO subject (uno, cno, name, order_id) VALUES (?, ?, ?, ?)`, [JACK_UNO, cno, name, maxOrder + 1])
     refreshAll()
-    await saveFile()
+    await saveFile('addSubject')
   }
 
   async function renameSubject(sno, name) {
     if (!db.value) return
     db.value.run(`UPDATE subject SET name=? WHERE sno=? AND uno=?`, [name, sno, JACK_UNO])
     refreshAll()
-    await saveFile()
+    await saveFile('renameSubject')
   }
 
   async function deleteSubject(sno) {
@@ -393,7 +425,7 @@ export const useMoneyStore = defineStore('money', () => {
     db.value.run(`UPDATE money SET sno=NULL WHERE sno=? AND uno=?`, [sno, JACK_UNO])
     db.value.run(`DELETE FROM subject WHERE sno=? AND uno=?`, [sno, JACK_UNO])
     refreshAll()
-    await saveFile()
+    await saveFile('deleteSubject')
   }
 
   async function saveSubjectOrder(orderedSnos) {
@@ -402,7 +434,7 @@ export const useMoneyStore = defineStore('money', () => {
       db.value.run(`UPDATE subject SET order_id=? WHERE sno=? AND uno=?`, [i + 1, sno, JACK_UNO])
     })
     refreshAll()
-    await saveFile()
+    await saveFile('saveSubjectOrder')
   }
 
   // ── 設定檔匯入（完全取代）────────────────────────────
@@ -428,7 +460,7 @@ export const useMoneyStore = defineStore('money', () => {
       )
     })
     refreshAll()
-    await saveFile()
+    await saveFile('importCategories')
   }
 
   // ── 預算 CRUD ───────────────────────────────────────
@@ -479,7 +511,7 @@ export const useMoneyStore = defineStore('money', () => {
         }
       }
     }
-    if (needSave) saveFile()
+    if (needSave) saveFile('loadClassBuckets')
     classBuckets.value = map
   }
 
@@ -491,7 +523,7 @@ export const useMoneyStore = defineStore('money', () => {
       [cno, bucket],
     )
     classBuckets.value = { ...classBuckets.value, [cno]: bucket }
-    await saveFile()
+    await saveFile('setClassBucket')
   }
 
   async function upsertBudgetYear({ year, total, note, ratio_life, ratio_fixed, ratio_want, ratio_save }) {
@@ -507,7 +539,7 @@ export const useMoneyStore = defineStore('money', () => {
        ratio_life ?? 0.30, ratio_fixed ?? 0.20, ratio_want ?? 0.10, ratio_save ?? 0.40],
     )
     loadBudget(budgetYear.value)
-    await saveFile()
+    await saveFile('upsertBudgetYear')
   }
 
   async function upsertBudgetItemNote({ year, cno, sno = 0, month = 0, note }) {
@@ -519,7 +551,7 @@ export const useMoneyStore = defineStore('money', () => {
       [year, cno, sno, month, note ?? null],
     )
     loadBudget(budgetYear.value)
-    await saveFile()
+    await saveFile('upsertBudgetItemNote')
   }
 
   async function upsertBudgetItem({ year, cno, sno = 0, month = 0, amount, formula }) {
@@ -538,7 +570,7 @@ export const useMoneyStore = defineStore('money', () => {
       )
     }
     loadBudget(budgetYear.value)
-    await saveFile()
+    await saveFile('upsertBudgetItem')
   }
 
   // 批次寫入（給「一鍵填入」之類用，避免每格都觸發 saveFile）
@@ -554,7 +586,7 @@ export const useMoneyStore = defineStore('money', () => {
       )
     }
     loadBudget(budgetYear.value)
-    await saveFile()
+    await saveFile('bulkUpsertBudgetItems')
   }
 
   // 匯出某一年度預算為 JSON（含 budget_year / budget_item / budget_class_bucket + class/subject 名稱）
@@ -626,7 +658,7 @@ export const useMoneyStore = defineStore('money', () => {
       )
     }
     loadBudget(dstYear)
-    await saveFile()
+    await saveFile('copyBudgetFromYear')
   }
 
   // ── 歷史支出統計 ───────────────────────────────────────
