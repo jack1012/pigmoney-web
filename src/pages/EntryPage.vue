@@ -98,7 +98,10 @@ function evalAmount(s) {
 const amountValue = computed(() => evalAmount(form.value.amount))
 const isExpression = computed(() => /[+\-*/()]/.test(form.value.amount || ''))
 
-const canSubmit = computed(() => form.value.cno != null && amountValue.value != null)
+// money.sno 為 NOT NULL，未選子項目就送出會寫入失敗，所以子項目也是必選
+const canSubmit = computed(() =>
+  form.value.cno != null && form.value.sno != null && amountValue.value != null)
+const needSubject = computed(() => form.value.cno != null && form.value.sno == null)
 const canAdd    = computed(() => !editMno.value && canSubmit.value)
 const canUpdate = computed(() => !!editMno.value && canSubmit.value)
 
@@ -122,9 +125,9 @@ function loadRow(r) {
   editMno.value     = r.mno
 }
 
-function onAdd() {
+async function onAdd() {
   if (!canAdd.value) return
-  store.addTransaction({
+  const ok = await store.addTransaction({
     cno:   form.value.cno,
     sno:   form.value.sno,
     spend: amountValue.value,
@@ -132,13 +135,15 @@ function onAdd() {
     note:  form.value.note,
     mode:  form.value.mode,
   })
+  // 沒寫進去就保留輸入，不能讓人以為已新增
+  if (!ok) return
   form.value.amount = ''
   form.value.note   = ''
 }
 
-function onUpdate() {
+async function onUpdate() {
   if (!canUpdate.value) return
-  store.updateTransaction({
+  const ok = await store.updateTransaction({
     mno:   editMno.value,
     cno:   form.value.cno,
     sno:   form.value.sno,
@@ -147,6 +152,7 @@ function onUpdate() {
     note:  form.value.note,
     mode:  form.value.mode,
   })
+  if (!ok) return
   resetForm()
 }
 
@@ -256,6 +262,9 @@ watch(() => store.pendingEditMno, (v) => { if (v) consumePendingEdit() })
             <button class="btn flex-1" @click="resetForm">重置 (Esc)</button>
           </div>
 
+          <p v-if="needSubject" class="col-span-2 text-[12px] text-red-600 dark:text-red-400">
+            請先選擇子項目，才能新增或修改
+          </p>
           <p class="col-span-2 text-[11px] text-emerald-700 dark:text-emerald-400 mt-1">
             提示：點下方列可載入修改；金額支援算式如 120+50；[Esc] 重置
           </p>

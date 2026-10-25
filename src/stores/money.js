@@ -361,26 +361,37 @@ export const useMoneyStore = defineStore('money', () => {
     loadAssets()
   }
 
+  // 回傳 true 表示已寫入；false 表示被擋下，呼叫端不可清空輸入
   async function addTransaction({ cno, sno, spend, date, note, mode }) {
-    if (!db.value) return
+    if (!db.value) return false
+    if (sno == null) {
+      error.value = '請先選擇子項目，這筆帳尚未新增'
+      return false
+    }
     db.value.run(
       `INSERT INTO money (uno, cno, sno, spend, date, note, mode)
        VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [JACK_UNO, cno, sno ?? null, spend, date, note || '', mode],
+      [JACK_UNO, cno, sno, spend, date, note || '', mode],
     )
     refreshAll()
     await saveFile('addTransaction')
+    return true
   }
 
   async function updateTransaction({ mno, cno, sno, spend, date, note, mode }) {
-    if (!db.value) return
+    if (!db.value) return false
+    if (sno == null) {
+      error.value = '請先選擇子項目，這筆帳尚未修改'
+      return false
+    }
     db.value.run(
       `UPDATE money SET cno=?, sno=?, spend=?, date=?, note=?, mode=?
        WHERE mno=? AND uno=?`,
-      [cno, sno ?? null, spend, date, note || '', mode, mno, JACK_UNO],
+      [cno, sno, spend, date, note || '', mode, mno, JACK_UNO],
     )
     refreshAll()
     await saveFile('updateTransaction')
+    return true
   }
 
   async function deleteTransaction(mno) {
