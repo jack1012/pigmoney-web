@@ -189,10 +189,9 @@ async function onImport() {
 async function onDeleteSubject() {
   if (!selectedSno.value) return
   const sub = store.subjects.find(s => s.sno === selectedSno.value)
-  if (!window.confirm(`確定刪除子項目「${sub?.name}」？\n相關消費的子項目將自動設為空白。`)) return
-  const sno = selectedSno.value
-  selectedSno.value = null
-  await store.deleteSubject(sno)
+  if (!window.confirm(`確定刪除子項目「${sub?.name}」？\n還有消費使用的子項目無法刪除。`)) return
+  const ok = await store.deleteSubject(selectedSno.value)
+  if (ok) selectedSno.value = null
 }
 </script>
 

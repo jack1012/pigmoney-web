@@ -451,12 +451,21 @@ export const useMoneyStore = defineStore('money', () => {
     await saveFile('renameSubject')
   }
 
+  // money.sno 為 NOT NULL，帳目無法改成空白；還有消費掛在這個子項目下就不刪。
+  // 回傳 true 表示已刪除
   async function deleteSubject(sno) {
-    if (!db.value) return
-    db.value.run(`UPDATE money SET sno=NULL WHERE sno=? AND uno=?`, [sno, JACK_UNO])
+    if (!db.value) return false
+    const [{ values }] = db.value.exec(
+      `SELECT COUNT(*) FROM money WHERE sno=? AND uno=?`, [sno, JACK_UNO])
+    const used = values[0][0]
+    if (used > 0) {
+      error.value = `這個子項目還有 ${used} 筆消費，請先把它們改到其他子項目再刪除`
+      return false
+    }
     db.value.run(`DELETE FROM subject WHERE sno=? AND uno=?`, [sno, JACK_UNO])
     refreshAll()
     await saveFile('deleteSubject')
+    return true
   }
 
   async function saveSubjectOrder(orderedSnos) {
