@@ -301,6 +301,23 @@ export const useMoneyStore = defineStore('money', () => {
     } finally {
       picking = false
     }
+    await loadFromHandle(handle)
+  }
+
+  // 拖曳檔案到視窗開檔：Chrome 157（Windows）的 showOpenFilePicker 在選檔視窗用滑鼠
+  // 導覽後會 AbortError（chromium 582407452 / 581925550），拖曳取得的 handle 不經過
+  // 選檔視窗，同樣可寫回磁碟。
+  async function openFileFromDrop(dataTransfer) {
+    const item = [...(dataTransfer?.items || [])].find((i) => i.kind === 'file')
+    const handle = await item?.getAsFileSystemHandle?.()
+    if (!handle || handle.kind !== 'file') {
+      error.value = '拖曳的不是單一檔案，或此瀏覽器不支援（請用 Chrome / Edge）'
+      return
+    }
+    await loadFromHandle(handle)
+  }
+
+  async function loadFromHandle(handle) {
     loading.value = true
     error.value = ''
     try {
@@ -937,6 +954,7 @@ export const useMoneyStore = defineStore('money', () => {
     checkDiskReload,
     openFile,
     openFileFromBlob,
+    openFileFromDrop,
     pickerFailed,
     downloadDb,
     saveFile,

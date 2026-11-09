@@ -113,6 +113,11 @@ function onFileInputChange(e) {
   e.target.value = ''   // 重設，才能重複選同一個檔
 }
 
+function onDrop(e) {
+  e.preventDefault()
+  store.openFileFromDrop(e.dataTransfer)
+}
+
 function switchTab(id) {
   currentTab.value = id
   store.checkDiskReload()
@@ -137,7 +142,7 @@ function openErrorReports() {
 </script>
 
 <template>
-  <div class="flex flex-col h-screen">
+  <div class="flex flex-col h-screen" @dragover.prevent @drop="onDrop">
     <header class="flex items-end gap-0 px-3 pt-1 bg-zinc-100 dark:bg-zinc-900 border-b border-zinc-300 dark:border-zinc-700">
       <h1 class="text-base font-semibold mr-4 pb-2 self-center text-zinc-700 dark:text-zinc-200">家庭記帳本</h1>
 
@@ -200,7 +205,8 @@ function openErrorReports() {
         class="h-full flex items-center justify-center text-zinc-500"
       >
         <div class="text-center">
-          <p class="mb-3 text-sm">請選擇 money*.sqlite 檔開始</p>
+          <p class="mb-1 text-sm">請選擇 money*.sqlite 檔開始</p>
+          <p class="mb-3 text-xs text-zinc-400">或直接把檔案拖曳到這個視窗（Chrome 選檔失敗時用這個）</p>
           <button class="btn btn-primary" :disabled="store.loading" @click="pickFile">
             {{ store.loading ? '載入中…' : '開啟 .sqlite' }}
           </button>
@@ -213,7 +219,7 @@ function openErrorReports() {
           >
             換用傳統選檔（唯讀）
           </button>
-          <p class="mt-4 text-xs text-zinc-400">v{{ APP_VERSION }} · build {{ BUILD_TIME }}</p>
+          <p class="mt-4 text-xs text-red-500">v{{ APP_VERSION }} · build {{ BUILD_TIME }}</p>
         </div>
       </div>
 
