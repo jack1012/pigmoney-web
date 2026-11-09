@@ -264,12 +264,17 @@ export const useMoneyStore = defineStore('money', () => {
   // 就會踩到，而 loading 要等 picker 回來才設得起來，擋不住這一段空窗。
   let picking = false
 
+  // showOpenFilePicker 被 Chrome 中止（非使用者主動取消）時設為 true，
+  // App.vue 據此顯示「換用傳統選檔」按鈕（<input type="file"> 備援路徑）。
+  const pickerFailed = ref(false)
+
   async function openFile() {
     if (picking) return
     if (!window.showOpenFilePicker) {
       error.value = '請使用 Chrome 或 Edge 瀏覽器（需支援 File System Access API）'
       return
     }
+    pickerFailed.value = false
     picking = true
     let handle
     try {
@@ -288,6 +293,8 @@ export const useMoneyStore = defineStore('money', () => {
           '選檔未完成（AbortError）：' + (e.message || '沒有附帶訊息'),
           '開啟檔案', '操作錯誤', e.stack || String(e), { context: 'showOpenFilePicker' },
         )
+        // 讓 App.vue 顯示 <input type="file"> 備援按鈕
+        pickerFailed.value = true
       }
       return
     } finally {
@@ -325,11 +332,36 @@ export const useMoneyStore = defineStore('money', () => {
       lastSaved.value = ''
       dirty.value = false
       unsavedConflict.value = false
+      pickerFailed.value = false
       refreshAll()
     } catch (e) {
       error.value = e.message || String(e)
       db.value = null
       fileHandle.value = null
+    } finally {
+      loading.value = false
+    }
+  }
+
+  // <input type="file"> 備援路徑：showOpenFilePicker 被 Chrome 中止時使用。
+  // 這條路徑無法取得 FileSystemFileHandle，存檔功能將無法運作（唯讀模式）。
+  async function openFileFromBlob(file) {
+    if (!file) return
+    loading.value = true
+    error.value = ''
+    pickerFailed.value = false
+    try {
+      db.value = await withTimeout(openDbFromFile(file), '載入資料庫')
+      fileName.value = file.name + '（唯讀）'
+      fileHandle.value = null       // 無 handle → saveFile 不會嘗試回寫
+      diskLastModified.value = file.lastModified
+      lastSaved.value = ''
+      dirty.value = false
+      unsavedConflict.value = false
+      refreshAll()
+    } catch (e) {
+      error.value = e.message || String(e)
+      db.value = null
     } finally {
       loading.value = false
     }
@@ -874,6 +906,8 @@ export const useMoneyStore = defineStore('money', () => {
     clearSystemErrorReports,
     checkDiskReload,
     openFile,
+    openFileFromBlob,
+    pickerFailed,
     saveFile,
     refreshAll,
     addTransaction,

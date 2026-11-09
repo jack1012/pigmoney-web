@@ -95,8 +95,21 @@ watch(() => store.requestTabSwitch, (v) => {
   }
 })
 
+const fileInputRef = ref(null)
+
 function pickFile() {
   store.openFile()
+}
+
+// showOpenFilePicker 失敗時的備援：改用 <input type="file">（唯讀，無法存回磁碟）
+function pickFileFallback() {
+  fileInputRef.value?.click()
+}
+
+function onFileInputChange(e) {
+  const file = e.target.files?.[0]
+  if (file) store.openFileFromBlob(file)
+  e.target.value = ''   // 重設，才能重複選同一個檔
 }
 
 function switchTab(id) {
@@ -152,6 +165,15 @@ function openErrorReports() {
         <button class="btn" @click="pickFile">
           {{ store.fileName ? '更換檔案' : '開啟 .sqlite' }}
         </button>
+        <!-- showOpenFilePicker 被 Chrome 中止後顯示，提供 <input type="file"> 備援 -->
+        <button
+          v-if="store.pickerFailed"
+          class="btn btn-primary"
+          :disabled="store.loading"
+          @click="pickFileFallback"
+        >
+          換用傳統選檔
+        </button>
         <button
           class="btn"
           :title="isDark ? '切到亮色' : '切到暗色'"
@@ -181,6 +203,15 @@ function openErrorReports() {
           <button class="btn btn-primary" :disabled="store.loading" @click="pickFile">
             {{ store.loading ? '載入中…' : '開啟 .sqlite' }}
           </button>
+          <!-- showOpenFilePicker 失敗後備援，唯讀，不支援自動存檔 -->
+          <button
+            v-if="store.pickerFailed"
+            class="btn mt-2"
+            :disabled="store.loading"
+            @click="pickFileFallback"
+          >
+            換用傳統選檔（唯讀）
+          </button>
         </div>
       </div>
 
@@ -188,5 +219,14 @@ function openErrorReports() {
         <component :is="activeComponent" :key="currentTab" />
       </keep-alive>
     </main>
+
+    <!-- showOpenFilePicker 備援：由 pickFileFallback() 觸發，使用者不直接看到 -->
+    <input
+      ref="fileInputRef"
+      type="file"
+      accept=".sqlite,.db"
+      class="hidden"
+      @change="onFileInputChange"
+    />
   </div>
 </template>
