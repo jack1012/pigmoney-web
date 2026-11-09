@@ -279,7 +279,8 @@ export const useMoneyStore = defineStore('money', () => {
     let handle
     try {
       ;[handle] = await window.showOpenFilePicker({
-        types: [{ description: 'SQLite Database', accept: { 'application/octet-stream': ['.sqlite', '.db'] } }],
+        // 不帶 types/accept：網路上有 Chrome 因 accept 選項在選了檔之後仍丟 AbortError 的回報
+        // （react-dropzone#1239），Edge 正常。副檔名交給 openDbFromFile 驗證內容即可。
         multiple: false,
       })
     } catch (e) {
