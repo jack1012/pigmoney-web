@@ -271,7 +271,17 @@ export const useMoneyStore = defineStore('money', () => {
         multiple: false,
       })
     } catch (e) {
-      if (e.name !== 'AbortError') error.value = e.message || String(e)
+      // AbortError 可能是使用者按取消（正常操作），也可能是 Chrome 擋下這次選取。
+      // 兩者在畫面上完全同一個樣子：按了選了檔，然後什麼都沒發生。不跳紅色橫幅
+      // （取消是正常的，不該被罵），但一定要留紀錄，否則這條路永遠查不到。
+      if (e.name !== 'AbortError') {
+        error.value = e.message || String(e)
+      } else {
+        recordSystemError(
+          '選檔未完成（AbortError）：' + (e.message || '沒有附帶訊息'),
+          '開啟檔案', '操作錯誤', e.stack || String(e), { context: 'showOpenFilePicker' },
+        )
+      }
       return
     }
     loading.value = true
