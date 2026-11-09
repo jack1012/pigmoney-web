@@ -80,7 +80,10 @@ function exportReportSource() {
               <div class="col-span-12 flex gap-1.5 flex-wrap">
                 <button class="btn btn-primary !text-[11px] !py-0.5 !px-2" @click="store.openFile()">載入 .sqlite 檔</button>
                 <button class="btn !text-[11px] !py-0.5 !px-2" :disabled="!store.fileHandle" @click="store.saveFile('手動存檔')">手動存檔</button>
-                <span v-if="store.lastSaved" class="text-[11px] text-emerald-600 dark:text-emerald-400 self-center">
+                <button class="btn !text-[11px] !py-0.5 !px-2" title="選檔視窗被瀏覽器擋掉時的後備路徑，只能看不能存" @click="store.openFileReadOnly()">唯讀開啟</button>
+                <button class="btn !text-[11px] !py-0.5 !px-2" :disabled="!store.db" title="把目前記憶體中的資料庫存成檔案，可自行覆蓋原檔" @click="store.downloadDb()">下載資料庫</button>
+                <span v-if="store.readOnly" class="text-[11px] text-amber-500 self-center">🔒 唯讀模式，改動無法寫回原檔</span>
+                <span v-else-if="store.lastSaved" class="text-[11px] text-emerald-600 dark:text-emerald-400 self-center">
                   已存 {{ store.lastSaved }}
                 </span>
                 <button class="btn !text-[11px] !py-0.5 !px-2" :disabled="!store.db" @click="exportReportSource">匯出年報資料</button>
@@ -271,9 +274,20 @@ function exportReportSource() {
       <section class="panel h-full flex flex-col min-h-0 overflow-hidden">
         <span class="panel-title">開發日誌</span>
         <div class="text-[12px] text-zinc-600 dark:text-zinc-400 space-y-3 flex-1 min-h-0 overflow-y-auto pr-1">
-          <p class="font-medium text-zinc-800 dark:text-zinc-200">家庭記帳本 v{{ APP_VERSION }} (2026-10-04) — 豬頭記帳網頁版</p>
+          <p class="font-medium text-zinc-800 dark:text-zinc-200">家庭記帳本 v{{ APP_VERSION }} (2026-11-09) — 豬頭記帳網頁版</p>
 
           <div class="space-y-3">
+            <div>
+              <p class="text-emerald-600 dark:text-emerald-400 font-semibold mb-0.5">v2.4.0 (2026-11-09) — 選檔被瀏覽器擋掉不再靜悄悄</p>
+              <ul class="space-y-0.5 leading-relaxed pl-2">
+                <li>· <strong>修復「按了沒反應」</strong>：瀏覽器拒絕開啟選檔視窗時會在幾十毫秒內丟 AbortError，程式原本一律當成「使用者按取消」而不出聲；現在以 400ms 為界分辨兩者，被擋下就跳紅色橫幅並寫明怎麼開回權限</li>
+                <li>· 新增<strong>唯讀開啟</strong>後備路徑：改用 &lt;input type="file"&gt; 讀檔，權限壞掉時至少看得到資料；標題列顯示「🔒 唯讀」</li>
+                <li>· 新增<strong>下載資料庫</strong>：唯讀模式下把記憶體資料庫存成檔案，可自行覆蓋原檔</li>
+                <li>· <strong>修復無聲不存檔</strong>：沒有檔案控制代碼時原本直接略過寫入，修改就這樣消失；現在一律跳錯誤並留紀錄</li>
+                <li>· 登入頁直接標出版本與 build 時間，開不了檔也能確認線上跑的是哪一版</li>
+                <li>· 併入同版的開檔修正：擋下重複呼叫選檔器、開檔前先取得讀取權限、權限不足時報出實際狀態</li>
+              </ul>
+            </div>
             <div>
               <p class="text-emerald-600 dark:text-emerald-400 font-semibold mb-0.5">v2.3.0 (2026-10-04) — 阻止自動重載覆蓋未存檔資料</p>
               <ul class="space-y-0.5 leading-relaxed pl-2">
