@@ -286,6 +286,14 @@ function exportReportSource() {
 
           <div class="space-y-3">
             <div>
+              <p class="text-emerald-600 dark:text-emerald-400 font-semibold mb-0.5">v2.3.4 (2026-11-10) — 連續存檔合併，並拉長存檔重試</p>
+              <ul class="space-y-0.5 leading-relaxed pl-2">
+                <li>· 回報：連刪兩筆，第二次存檔出現 InvalidStateError（Edge 157、檔案在 Dropbox 資料夾）</li>
+                <li>· 排隊中、尚未開始的存檔改為共用同一次寫入，連續操作不再變成連續兩次換檔；重試由 3 次增為 5 次、退避共約 3 秒</li>
+                <li>· <strong>未能重現</strong>：在真 Chrome 157 對一般資料夾與 Dropbox 資料夾各連續存 3 次都成功，所以這是針對「檔案狀態在兩次寫入間被改動」的緩解，尚未證實就是根因。若仍發生，請提供「存檔失敗」那筆含技術細節與 attempts 的回報</li>
+              </ul>
+            </div>
+            <div>
               <p class="text-emerald-600 dark:text-emerald-400 font-semibold mb-0.5">v2.3.3 (2026-11-10) — 拖曳開檔，繞過 Chrome 157 選檔視窗 bug</p>
               <ul class="space-y-0.5 leading-relaxed pl-2">
                 <li>· 新增<strong>拖曳 .sqlite 到視窗開檔</strong>：拿到的檔案控制代碼不經選檔視窗，仍可寫回磁碟（Chrome 157 實測：開檔、新增一筆、磁碟檔 25623 → 25624 筆）</li>

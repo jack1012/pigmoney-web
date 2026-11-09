@@ -389,7 +389,8 @@ export const useMoneyStore = defineStore('money', () => {
   // createWritable()/close() 同時操作同一個 fileHandle。重疊寫入正是
   // InvalidStateError（state had changed）的來源。
   let saveChain = Promise.resolve()
-  const SAVE_MAX_ATTEMPTS = 3
+  let pendingSave = null   // 已排隊但尚未開始寫入的那一次存檔
+  const SAVE_MAX_ATTEMPTS = 5
 
   // 只有 handle 狀態失效這類錯誤重試才有意義，其餘直接往外拋
   function isStaleHandleError(e) {
@@ -402,7 +403,14 @@ export const useMoneyStore = defineStore('money', () => {
   // context：觸發存檔的來源 action，失敗時寫進錯誤回報以便定位是哪個操作
   function saveFile(context = '未標示') {
     dirty.value = true
-    const run = saveChain.catch(() => {}).then(() => writeDbToDisk(context))
+    // 已經排隊、還沒開始寫的那一次會在開寫當下才 export，自然含到這次的修改，
+    // 所以直接共用，連續操作（連刪兩筆）不會變成連續兩次換檔寫入。
+    if (pendingSave) return pendingSave
+    const run = saveChain.catch(() => {}).then(() => {
+      pendingSave = null
+      return writeDbToDisk(context)
+    })
+    pendingSave = run
     saveChain = run
     return run
   }
@@ -463,7 +471,7 @@ export const useMoneyStore = defineStore('money', () => {
           if (writable) await writable.abort().catch(() => {})
           if (attempts >= SAVE_MAX_ATTEMPTS || !isStaleHandleError(e)) throw e
           await fileHandle.value.getFile().catch(() => {})
-          await new Promise((r) => setTimeout(r, 150 * attempts))   // 遞增退避
+          await new Promise((r) => setTimeout(r, 300 * attempts))   // 遞增退避，共約 3 秒
         }
       }
 
