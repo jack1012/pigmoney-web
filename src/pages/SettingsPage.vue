@@ -1,6 +1,6 @@
 <script setup>
 import { useMoneyStore } from '../stores/money.js'
-import { APP_VERSION } from '../lib/version.js'
+import { APP_VERSION, BUILD_TIME } from '../lib/version.js'
 
 const store = useMoneyStore()
 
@@ -285,6 +285,16 @@ function exportReportSource() {
           <p class="font-medium text-zinc-800 dark:text-zinc-200">家庭記帳本 v{{ APP_VERSION }} (2026-11-10) — 豬頭記帳網頁版</p>
 
           <div class="space-y-3">
+            <div>
+              <p class="text-emerald-600 dark:text-emerald-400 font-semibold mb-0.5">v2.3.3 (2026-11-10) — 拖曳開檔，繞過 Chrome 157 選檔視窗 bug</p>
+              <ul class="space-y-0.5 leading-relaxed pl-2">
+                <li>· 新增<strong>拖曳 .sqlite 到視窗開檔</strong>：拿到的檔案控制代碼不經選檔視窗，仍可寫回磁碟（Chrome 157 實測：開檔、新增一筆、磁碟檔 25623 → 25624 筆）</li>
+                <li>· <strong>根因</strong>：Chrome 157（Windows，約 11/4 起）的 showOpenFilePicker 在選檔視窗用滑鼠導覽資料夾後會 AbortError，Edge 正常；直接在檔名欄輸入完整路徑則可成功。屬瀏覽器 bug（chromium 582407452、issuetracker 581925550），非本程式缺陷，尚無官方修正</li>
+                <li>· <strong>v2.3.2 的檢討</strong>：移除 showOpenFilePicker 的 types 過濾，依據只是網路上的旁證，從未驗證有效，大概與根因無關；留著無害，但不是修正</li>
+                <li>· <strong>檢討</strong>：①一開始就把它當成程式問題，連續改了讀取權限、單一選檔器、備援路徑（v2.3.0 之後的開檔相關修正）都在處理症狀；Edge 可、Chrome 不行這條線索，應該先去查瀏覽器已知問題，而不是先改程式 ②備援路徑（唯讀）本身製造了新的無聲資料遺失，使用者在 Chrome 記的帳沒存到卻毫無警告，v2.3.1 才補上 ③錯誤紀錄一直都在使用者瀏覽器裡（AbortError、v2.3.0），早點讀出來就能確定是選檔視窗而非存檔 ④在沒辦法於使用者的 Chrome 重現前，不該宣稱修好；這次改用真 Chrome 157 自動化實測才有證據</li>
+                <li>· <strong>遇到類似狀況</strong>：選檔失敗先用拖曳；Chrome 修好前，也可在選檔視窗的檔名欄貼完整路徑再按 Enter，或改用 Edge</li>
+              </ul>
+            </div>
             <div>
               <p class="text-emerald-600 dark:text-emerald-400 font-semibold mb-0.5">v2.3.1 (2026-11-10) — 選檔被瀏覽器擋掉時的備援路徑</p>
               <ul class="space-y-0.5 leading-relaxed pl-2">
