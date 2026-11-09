@@ -168,6 +168,9 @@ function openErrorReports() {
         <span v-else-if="store.fileName" class="text-xs text-zinc-500 dark:text-zinc-400">
           {{ store.fileName }}
         </span>
+        <span v-if="store.pickerFailed && store.db" class="text-xs text-amber-600 dark:text-amber-400">
+          選檔被瀏覽器中止，請改拖曳檔案到視窗
+        </span>
         <button class="btn" @click="pickFile">
           {{ store.fileName ? '更換檔案' : '開啟 .sqlite' }}
         </button>
@@ -210,6 +213,10 @@ function openErrorReports() {
           <button class="btn btn-primary" :disabled="store.loading" @click="pickFile">
             {{ store.loading ? '載入中…' : '開啟 .sqlite' }}
           </button>
+          <p v-if="store.pickerFailed" class="mt-3 max-w-sm text-xs text-amber-600 dark:text-amber-400">
+            選檔視窗被瀏覽器中止（Chrome 157 已知問題）。請改<strong>把 .sqlite 檔拖進這個視窗</strong>，一樣可以存檔；
+            下方「傳統選檔」只能唯讀，改動不會寫回檔案。
+          </p>
           <!-- showOpenFilePicker 失敗後備援，唯讀，不支援自動存檔 -->
           <button
             v-if="store.pickerFailed"
