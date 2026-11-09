@@ -287,6 +287,16 @@ export const useMoneyStore = defineStore('money', () => {
     loading.value = true
     error.value = ''
     try {
+      // picker 回傳 handle 不等於已經拿到讀取權：Chrome 在某些設定下會把權限留在
+      // prompt 狀態，直接呼叫 getFile() 就丟 NotAllowedError（「The request is not
+      // allowed by the user agent or the platform in the current context」）。
+      // writeDbToDisk 早就有這段，開檔這條路徑一直漏掉。
+      const permission = await handle.requestPermission({ mode: 'read' })
+      if (permission !== 'granted') {
+        error.value = '瀏覽器未授予檔案讀取權限。請在彈出的詢問視窗按「允許」；'
+          + '若沒有出現詢問視窗，請點網址列左側的圖示 →「網站設定」，確認檔案存取未被封鎖。'
+        return
+      }
       const file = await withTimeout(handle.getFile(), '讀取檔案')
       db.value = await withTimeout(openDbFromFile(file), '載入資料庫')
       fileName.value = file.name
