@@ -291,13 +291,24 @@ export const useMoneyStore = defineStore('money', () => {
       // prompt 狀態，直接呼叫 getFile() 就丟 NotAllowedError（「The request is not
       // allowed by the user agent or the platform in the current context」）。
       // writeDbToDisk 早就有這段，開檔這條路徑一直漏掉。
-      const permission = await handle.requestPermission({ mode: 'read' })
-      if (permission !== 'granted') {
-        error.value = '瀏覽器未授予檔案讀取權限。請在彈出的詢問視窗按「允許」；'
-          + '若沒有出現詢問視窗，請點網址列左側的圖示 →「網站設定」，確認檔案存取未被封鎖。'
+      // 先試著要權限，但「沒拿到」不等於一定失敗——picker 常常已經隱含授權，
+      // 所以不在這裡提前放棄；真正的判準是 getFile() 本身。權限狀態只留著，
+      // 讓失敗時的訊息講得出到底卡在哪，而不是丟一句英文例外。
+      const permission = await handle
+        .requestPermission({ mode: 'read' })
+        .catch((e) => '無法查詢(' + e.name + ')')
+
+      let file
+      try {
+        file = await withTimeout(handle.getFile(), '讀取檔案')
+      } catch (e) {
+        if (e.name !== 'NotAllowedError') throw e
+        error.value = `瀏覽器拒絕讀取這個檔案（權限狀態：${permission}；`
+          + `使用者操作是否仍有效：${navigator.userActivation?.isActive}）。`
+          + '請在網址列貼上 chrome://settings/content/filesystem 檢查「檔案編輯」'
+          + '是否被封鎖；若本站列在封鎖清單請移除，再重新選一次檔案。'
         return
       }
-      const file = await withTimeout(handle.getFile(), '讀取檔案')
       db.value = await withTimeout(openDbFromFile(file), '載入資料庫')
       fileName.value = file.name
       fileHandle.value = handle
