@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, shallowRef, watch, onMounted, onUnmounted } from 'vue'
+import { ref, computed, shallowRef, watch, onMounted, onUnmounted, getCurrentInstance } from 'vue'
 import { useMoneyStore } from './stores/money.js'
 import EntryPage from './pages/EntryPage.vue'
 import StatsPage from './pages/StatsPage.vue'
@@ -10,6 +10,8 @@ import AssetPage from './pages/AssetPage.vue'
 import SettingsPage from './pages/SettingsPage.vue'
 
 const store = useMoneyStore()
+// setup 階段才取得得到，onMounted 的 callback 裡已經是 null
+const appContext = getCurrentInstance()?.appContext
 const currentTab = ref('entry')
 const isDark = ref(false)
 const errorCopyStatus = ref('')
@@ -51,10 +53,24 @@ function handleUnhandledRejection(event) {
   )
 }
 
+// Vue 的 render / watcher 錯誤不會冒泡到 window.onerror——Vue 自己接住後只印 console。
+// 少了這層，元件 render 爆掉時畫面一片空白，錯誤回報卻一個字都沒有，等於白當機。
+function handleVueError(err, _instance, info) {
+  console.error(err)   // 保留 Vue 原本的 console 輸出，不要因為接管而變安靜
+  store.recordSystemError(
+    err?.message || String(err || '未預期的畫面錯誤'),
+    currentPageLabel(),
+    '畫面錯誤',
+    [info, err?.stack].filter(Boolean).join('\n'),
+    { context: 'vue:' + info },
+  )
+}
+
 onMounted(() => {
   isDark.value = localStorage.getItem('theme') === 'dark'
   window.addEventListener('error', handleWindowError)
   window.addEventListener('unhandledrejection', handleUnhandledRejection)
+  if (appContext) appContext.app.config.errorHandler = handleVueError
 })
 
 onUnmounted(() => {
