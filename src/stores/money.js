@@ -87,10 +87,29 @@ export const useMoneyStore = defineStore('money', () => {
     localStorage.removeItem(ERROR_REPORT_STORAGE_KEY)
   }
 
+  // 雲端同步資料夾（Dropbox 僅限線上、OneDrive 隨選檔案）的佔位檔，讀取時要先從
+  // 雲端拉回本機，這個 Promise 可能永遠不 resolve。沒有逾時的話畫面只會一直停在
+  // 「載入中…」，使用者看到的就是「按了沒反應」。
+  const FILE_READ_TIMEOUT_MS = 20000
+
+  function withTimeout(promise, label) {
+    let timer
+    const limit = new Promise((_, reject) => {
+      timer = setTimeout(
+        () => reject(new Error(
+          `${label}超過 ${FILE_READ_TIMEOUT_MS / 1000} 秒沒有回應，`
+          + '檔案可能放在雲端同步資料夾且尚未下載到本機',
+        )),
+        FILE_READ_TIMEOUT_MS,
+      )
+    })
+    return Promise.race([promise, limit]).finally(() => clearTimeout(timer))
+  }
+
   async function checkDiskReload() {
     if (!fileHandle.value) return
     try {
-      const f = await fileHandle.value.getFile()
+      const f = await withTimeout(fileHandle.value.getFile(), '讀取檔案')
       if (f.lastModified === diskLastModified.value) return
 
       // 記憶體還有沒寫進磁碟的修改時，絕不可用磁碟版覆蓋——那會無聲丟掉剛輸入的資料。
@@ -109,7 +128,15 @@ export const useMoneyStore = defineStore('money', () => {
       refreshAll()
       diskReloaded.value = true
       setTimeout(() => { diskReloaded.value = false }, 3000)
-    } catch { /* 忽略權限/IO 錯誤 */ }
+    } catch (e) {
+      // 原本這裡靜默吞掉所有 IO 錯誤，雲端同步資料夾的失敗因此完全不留痕跡。
+      // 不寫 error.value（每次切分頁都會跑，紅色橫幅會太吵），但一定要留紀錄，
+      // 否則「開不起來」這類問題永遠沒有證據可查。紀錄可從「關於」分頁匯出。
+      recordSystemError(
+        '自動重載檢查失敗：' + (e.message || String(e)),
+        '自動重載', '非同步錯誤', e.stack || String(e), { context: 'checkDiskReload' },
+      )
+    }
   }
 
   const classes = ref([])
@@ -250,8 +277,8 @@ export const useMoneyStore = defineStore('money', () => {
     loading.value = true
     error.value = ''
     try {
-      const file = await handle.getFile()
-      db.value = await openDbFromFile(file)
+      const file = await withTimeout(handle.getFile(), '讀取檔案')
+      db.value = await withTimeout(openDbFromFile(file), '載入資料庫')
       fileName.value = file.name
       fileHandle.value = handle
       diskLastModified.value = file.lastModified
