@@ -261,6 +261,11 @@ export const useMoneyStore = defineStore('money', () => {
     () => new Map(subjects.value.map((s) => [s.sno, s.name])),
   )
 
+  // Chromium 同時只允許一個檔案選擇器開著。第二次呼叫會讓「兩邊」都收到
+  // AbortError，畫面上就是：按了、選了檔、然後什麼都沒發生。按鈕連點兩下
+  // 就會踩到，而 loading 要等 picker 回來才設得起來，擋不住這一段空窗。
+  let picking = false
+
   // 瀏覽器拒絕開啟選檔視窗時（Chrome 的「檔案編輯」權限被關掉是最常見的一種），
   // showOpenFilePicker 會在幾十毫秒內丟出 AbortError，長得和使用者按取消一模一樣。
   // 但人要等視窗畫出來、移動滑鼠再按取消，不可能這麼快——用耗時就能把兩者分開。
@@ -300,12 +305,14 @@ export const useMoneyStore = defineStore('money', () => {
   }
 
   async function openFile() {
+    if (picking) return
     if (!window.showOpenFilePicker) {
       pickerBlocked.value = true
-      error.value = '這個瀏覽器沒有 File System Access API，無法直接改寫檔案。'
-        + '請改用 Chrome／Edge，或按「唯讀開啟」先看資料。'
+      error.value = '請使用 Chrome 或 Edge 瀏覽器（需支援 File System Access API）。'
+        + '想先看資料可以按「唯讀開啟」。'
       return
     }
+    picking = true
     let handle
     const startedAt = performance.now()
     try {
@@ -334,12 +341,38 @@ export const useMoneyStore = defineStore('money', () => {
         )
       }
       return
+    } finally {
+      picking = false
     }
     pickerBlocked.value = false
     loading.value = true
     error.value = ''
     try {
-      const file = await withTimeout(handle.getFile(), '讀取檔案')
+      // picker 回傳 handle 不等於已經拿到讀取權：Chrome 在某些設定下會把權限留在
+      // prompt 狀態，直接呼叫 getFile() 就丟 NotAllowedError（「The request is not
+      // allowed by the user agent or the platform in the current context」）。
+      // writeDbToDisk 早就有這段，開檔這條路徑一直漏掉。
+      // 先試著要權限，但「沒拿到」不等於一定失敗——picker 常常已經隱含授權，
+      // 所以不在這裡提前放棄；真正的判準是 getFile() 本身。權限狀態只留著，
+      // 讓失敗時的訊息講得出到底卡在哪，而不是丟一句英文例外。
+      const permission = await handle
+        .requestPermission({ mode: 'read' })
+        .catch((e) => '無法查詢(' + e.name + ')')
+
+      let file
+      try {
+        file = await withTimeout(handle.getFile(), '讀取檔案')
+      } catch (e) {
+        if (e.name !== 'NotAllowedError') throw e
+        // 這條路也是「檔案存取被擋」，一樣要把唯讀後備端出來
+        pickerBlocked.value = true
+        error.value = `瀏覽器拒絕讀取這個檔案（權限狀態：${permission}；`
+          + `使用者操作是否仍有效：${navigator.userActivation?.isActive}）。`
+          + '請在網址列貼上 chrome://settings/content/filesystem 檢查「檔案編輯」'
+          + '是否被封鎖；若本站列在封鎖清單請移除，再重新選一次檔案。'
+          + '想先看資料可以按「唯讀開啟」。'
+        return
+      }
       await loadDb(file, handle)
     } catch (e) {
       error.value = e.message || String(e)
