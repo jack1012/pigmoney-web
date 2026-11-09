@@ -99,6 +99,10 @@ function pickFile() {
   store.openFile()
 }
 
+function pickFileReadOnly() {
+  store.openFileReadOnly()
+}
+
 function switchTab(id) {
   currentTab.value = id
   store.checkDiskReload()
@@ -141,6 +145,7 @@ function openErrorReports() {
       </nav>
 
       <div class="ml-auto flex items-center gap-2 pb-1.5 self-center">
+        <span v-if="store.readOnly" class="text-xs text-amber-500" title="檔案是用上傳方式讀進來的，改動無法寫回原檔，請用「關於」分頁的「下載資料庫」存檔">🔒 唯讀</span>
         <span v-if="store.unsavedConflict" class="text-xs text-amber-500" title="檔案被外部修改，且本機有未存檔修改，已停止自動重載">⚠ 未存檔衝突</span>
         <span v-if="store.diskReloaded" class="text-xs text-cyan-500">↻ 已同步</span>
         <span v-else-if="store.lastSaved" class="text-xs text-emerald-600 dark:text-emerald-400">
@@ -181,6 +186,11 @@ function openErrorReports() {
           <button class="btn btn-primary" :disabled="store.loading" @click="pickFile">
             {{ store.loading ? '載入中…' : '開啟 .sqlite' }}
           </button>
+          <!-- 只在選檔視窗被瀏覽器擋掉後才出現：平常不該誘導使用者走進存不了檔的唯讀模式 -->
+          <div v-if="store.pickerBlocked" class="mt-3">
+            <button class="btn" :disabled="store.loading" @click="pickFileReadOnly">唯讀開啟</button>
+            <p class="mt-1.5 text-[11px] text-zinc-400">唯讀模式只能看，改動無法寫回原檔</p>
+          </div>
         </div>
       </div>
 

@@ -28,6 +28,8 @@ export const useMoneyStore = defineStore('money', () => {
   const diskReloaded = ref(false)   // 自動重載提示（短暫為 true）
   const dirty = ref(false)           // 記憶體有修改但還沒成功寫入磁碟
   const unsavedConflict = ref(false) // 有未存檔修改且磁碟已被外部改動，已阻止自動重載
+  const readOnly = ref(false)        // 用 <input type="file"> 讀進來的檔，沒有 handle 可回寫
+  const pickerBlocked = ref(false)   // 瀏覽器拒絕開啟選檔視窗，UI 要改推唯讀後備
 
   // extra：額外診斷欄位（來源 action、重試次數），供追查用
   function recordSystemError(message, page = '未知頁面', type = '操作錯誤', details = '', extra = {}) {
@@ -259,50 +261,139 @@ export const useMoneyStore = defineStore('money', () => {
     () => new Map(subjects.value.map((s) => [s.sno, s.name])),
   )
 
+  // 瀏覽器拒絕開啟選檔視窗時（Chrome 的「檔案編輯」權限被關掉是最常見的一種），
+  // showOpenFilePicker 會在幾十毫秒內丟出 AbortError，長得和使用者按取消一模一樣。
+  // 但人要等視窗畫出來、移動滑鼠再按取消，不可能這麼快——用耗時就能把兩者分開。
+  const PICKER_REFUSED_MS = 400
+
+  const PICKER_BLOCKED_MESSAGE =
+    '瀏覽器拒絕開啟檔案選擇視窗，所以按鈕看起來沒反應。請到 Chrome 設定 → 隱私權與安全性 → '
+    + '網站設定 → 其他內容設定 → 檔案編輯，允許網站編輯裝置上的檔案（或點網址列左側圖示 → '
+    + '網站設定 → 重設權限），再重新整理本頁。想先看資料可以按「唯讀開啟」。'
+
+  // 共用載入流程：File System Access 與唯讀後備都走這裡，避免兩邊各寫一份而失準。
+  // handle 為 null 代表是上傳進來的檔案，寫不回磁碟，必須標成唯讀。
+  // loading 旗標由呼叫端管（開檔要連 getFile 一起算進「載入中」）。
+  async function loadDb(file, handle) {
+    try {
+      db.value = await withTimeout(openDbFromFile(file), '載入資料庫')
+      fileName.value = file.name
+      fileHandle.value = handle
+      readOnly.value = !handle
+      diskLastModified.value = file.lastModified
+      lastSaved.value = ''
+      dirty.value = false
+      unsavedConflict.value = false
+      refreshAll()
+      return true
+    } catch (e) {
+      error.value = e.message || String(e)
+      recordSystemError(
+        '載入資料庫失敗：' + (e.message || String(e)),
+        '開啟檔案', '操作錯誤', e.stack || String(e), { context: 'loadDb' },
+      )
+      db.value = null
+      fileHandle.value = null
+      readOnly.value = false
+      return false
+    }
+  }
+
   async function openFile() {
     if (!window.showOpenFilePicker) {
-      error.value = '請使用 Chrome 瀏覽器（需支援 File System Access API）'
+      pickerBlocked.value = true
+      error.value = '這個瀏覽器沒有 File System Access API，無法直接改寫檔案。'
+        + '請改用 Chrome／Edge，或按「唯讀開啟」先看資料。'
       return
     }
     let handle
+    const startedAt = performance.now()
     try {
       ;[handle] = await window.showOpenFilePicker({
         types: [{ description: 'SQLite Database', accept: { 'application/octet-stream': ['.sqlite', '.db'] } }],
         multiple: false,
       })
     } catch (e) {
-      // AbortError 可能是使用者按取消（正常操作），也可能是 Chrome 擋下這次選取。
-      // 兩者在畫面上完全同一個樣子：按了選了檔，然後什麼都沒發生。不跳紅色橫幅
-      // （取消是正常的，不該被罵），但一定要留紀錄，否則這條路永遠查不到。
+      const elapsed = Math.round(performance.now() - startedAt)
       if (e.name !== 'AbortError') {
         error.value = e.message || String(e)
-      } else {
+      } else if (elapsed < PICKER_REFUSED_MS) {
+        // 這條以前被當成「使用者按取消」靜靜吞掉，正是「按了沒反應」的真正來源：
+        // 選檔視窗根本沒開過，使用者沒有任何線索可看。必須跳紅色橫幅並指出怎麼修。
+        pickerBlocked.value = true
+        error.value = PICKER_BLOCKED_MESSAGE
         recordSystemError(
-          '選檔未完成（AbortError）：' + (e.message || '沒有附帶訊息'),
+          `選檔被瀏覽器拒絕（${elapsed}ms 內回傳 AbortError，視窗未開啟）：` + (e.message || '沒有附帶訊息'),
+          '開啟檔案', '操作錯誤', e.stack || String(e), { context: 'showOpenFilePicker:blocked' },
+        )
+      } else {
+        // 耗時夠長＝人真的看到視窗後按取消，屬正常操作，不跳紅色橫幅但留紀錄。
+        recordSystemError(
+          `選檔未完成（AbortError，${elapsed}ms）：` + (e.message || '沒有附帶訊息'),
           '開啟檔案', '操作錯誤', e.stack || String(e), { context: 'showOpenFilePicker' },
         )
       }
       return
     }
+    pickerBlocked.value = false
     loading.value = true
     error.value = ''
     try {
       const file = await withTimeout(handle.getFile(), '讀取檔案')
-      db.value = await withTimeout(openDbFromFile(file), '載入資料庫')
-      fileName.value = file.name
-      fileHandle.value = handle
-      diskLastModified.value = file.lastModified
-      lastSaved.value = ''
-      dirty.value = false
-      unsavedConflict.value = false
-      refreshAll()
+      await loadDb(file, handle)
     } catch (e) {
       error.value = e.message || String(e)
+      recordSystemError(
+        '讀取檔案失敗：' + (e.message || String(e)),
+        '開啟檔案', '操作錯誤', e.stack || String(e), { context: 'openFile:getFile' },
+      )
       db.value = null
       fileHandle.value = null
     } finally {
       loading.value = false
     }
+  }
+
+  // 唯讀後備：選檔視窗被擋掉時，<input type="file"> 這條舊路仍然讀得到檔，
+  // 至少讓人看得到資料。代價是拿不到 handle、寫不回原檔，所以一律標成唯讀，
+  // 由 writeDbToDisk 大聲擋下存檔——寧可吵，也不能讓修改無聲消失。
+  function openFileReadOnly() {
+    const input = document.createElement('input')
+    input.type = 'file'
+    input.accept = '.sqlite,.db'
+    input.style.display = 'none'
+    input.addEventListener('cancel', () => input.remove())
+    input.addEventListener('change', async () => {
+      const file = input.files?.[0]
+      input.remove()
+      if (!file) return
+      loading.value = true
+      error.value = ''
+      try {
+        await loadDb(file, null)
+      } finally {
+        loading.value = false
+      }
+    })
+    document.body.appendChild(input)
+    input.click()
+  }
+
+  // 唯讀模式下唯一的保全手段：把記憶體資料庫存成檔案，讓使用者自行覆蓋原檔
+  function downloadDb() {
+    if (!db.value) {
+      error.value = '尚未載入資料庫，沒有東西可以下載。'
+      return
+    }
+    const blob = new Blob([db.value.export()], { type: 'application/octet-stream' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = fileName.value || 'money.sqlite'
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+    setTimeout(() => URL.revokeObjectURL(url), 1000)
   }
 
   // 存檔序列化用的 promise 鏈：每次寫入都接在前一次之後，避免多個
@@ -328,7 +419,19 @@ export const useMoneyStore = defineStore('money', () => {
   }
 
   async function writeDbToDisk(context) {
-    if (!db.value || !fileHandle.value) return
+    if (!db.value) return
+    // 沒有檔案控制代碼就寫不回磁碟。這裡以前直接 return，等於唯讀模式下每一次修改
+    // 都被無聲丟掉，畫面還一副存好了的樣子。寧可吵也要讓使用者知道沒存進去。
+    if (!fileHandle.value) {
+      dirty.value = true
+      const msg = readOnly.value
+        ? '唯讀模式無法存檔：這個檔案是用上傳方式讀進來的，改動只在記憶體裡。'
+          + '請按「下載資料庫」存成檔案後自行覆蓋原檔。'
+        : '尚未開啟檔案，這次修改沒有寫入磁碟。'
+      error.value = msg
+      recordSystemError(msg, '儲存檔案', '存檔失敗', '', { context })
+      return
+    }
     let attempts = 0
     try {
       const permission = await fileHandle.value.requestPermission({ mode: 'readwrite' })
@@ -815,6 +918,8 @@ export const useMoneyStore = defineStore('money', () => {
     db,
     fileName,
     fileHandle,
+    readOnly,
+    pickerBlocked,
     loading,
     error,
     errorReports,
@@ -844,6 +949,8 @@ export const useMoneyStore = defineStore('money', () => {
     clearSystemErrorReports,
     checkDiskReload,
     openFile,
+    openFileReadOnly,
+    downloadDb,
     saveFile,
     refreshAll,
     addTransaction,
