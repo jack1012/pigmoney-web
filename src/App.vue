@@ -1,6 +1,7 @@
 <script setup>
 import { ref, computed, shallowRef, watch, onMounted, onUnmounted, getCurrentInstance } from 'vue'
 import { useMoneyStore } from './stores/money.js'
+import { APP_VERSION, BUILD_TIME } from './lib/version.js'
 import EntryPage from './pages/EntryPage.vue'
 import StatsPage from './pages/StatsPage.vue'
 import ChartPage from './pages/ChartPage.vue'
@@ -212,6 +213,7 @@ function openErrorReports() {
           >
             換用傳統選檔（唯讀）
           </button>
+          <p class="mt-4 text-xs text-zinc-400">v{{ APP_VERSION }} · build {{ BUILD_TIME }}</p>
         </div>
       </div>
 
