@@ -259,11 +259,18 @@ export const useMoneyStore = defineStore('money', () => {
     () => new Map(subjects.value.map((s) => [s.sno, s.name])),
   )
 
+  // Chromium 同時只允許一個檔案選擇器開著。第二次呼叫會讓「兩邊」都收到
+  // AbortError，畫面上就是：按了、選了檔、然後什麼都沒發生。按鈕連點兩下
+  // 就會踩到，而 loading 要等 picker 回來才設得起來，擋不住這一段空窗。
+  let picking = false
+
   async function openFile() {
+    if (picking) return
     if (!window.showOpenFilePicker) {
-      error.value = '請使用 Chrome 瀏覽器（需支援 File System Access API）'
+      error.value = '請使用 Chrome 或 Edge 瀏覽器（需支援 File System Access API）'
       return
     }
+    picking = true
     let handle
     try {
       ;[handle] = await window.showOpenFilePicker({
@@ -283,6 +290,8 @@ export const useMoneyStore = defineStore('money', () => {
         )
       }
       return
+    } finally {
+      picking = false
     }
     loading.value = true
     error.value = ''
