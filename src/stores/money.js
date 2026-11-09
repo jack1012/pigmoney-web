@@ -389,8 +389,37 @@ export const useMoneyStore = defineStore('money', () => {
     return run
   }
 
+  // 唯讀模式（<input type="file"> 備援路徑）下把記憶體資料庫存成檔案。
+  // 這是那條路徑唯一的出口：沒有它，修改就只能留在記憶體裡等著消失。
+  function downloadDb() {
+    if (!db.value) {
+      error.value = '尚未載入資料庫，沒有東西可以下載。'
+      return
+    }
+    const blob = new Blob([db.value.export()], { type: 'application/octet-stream' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = (fileName.value || 'money.sqlite').replace('（唯讀）', '')
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+    setTimeout(() => URL.revokeObjectURL(url), 1000)
+  }
+
   async function writeDbToDisk(context) {
-    if (!db.value || !fileHandle.value) return
+    if (!db.value) return
+    // 沒有檔案控制代碼就寫不回磁碟。這裡原本直接 return，於是唯讀模式下
+    // 每一次修改都被無聲丟掉，畫面卻一副存好了的樣子——寧可吵也要讓人知道。
+    if (!fileHandle.value) {
+      dirty.value = true
+      const msg = '唯讀模式無法存檔：這個檔案是用「換用傳統選檔」讀進來的，'
+        + '改動只在記憶體裡，關掉或重新整理就會消失。'
+        + '請到「關於」分頁按「下載資料庫」存成檔案後覆蓋原檔。'
+      error.value = msg
+      recordSystemError(msg, '儲存檔案', '存檔失敗', '', { context })
+      return
+    }
     let attempts = 0
     try {
       const permission = await fileHandle.value.requestPermission({ mode: 'readwrite' })
@@ -908,6 +937,7 @@ export const useMoneyStore = defineStore('money', () => {
     openFile,
     openFileFromBlob,
     pickerFailed,
+    downloadDb,
     saveFile,
     refreshAll,
     addTransaction,
