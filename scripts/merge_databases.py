@@ -16,27 +16,29 @@ from collections import OrderedDict
 # ── 來源檔案清單 ──────────────────────────────────────────
 DATA_DIR_LOCAL = r'D:\Projects\pigmoney-web\.data'
 DATA_DIR_DROPBOX = r'F:\Dropbox\(0)money'
+# 2026-11-09 資料夾整理：舊資料庫已移到 09_歷史記帳系統（資料夾已攤平，無子資料夾；碟符 F: 在本機不存在，實體為 E:）
+DB_DIR_DROPBOX = os.path.join(DATA_DIR_DROPBOX, '09_歷史記帳系統')
 
 # 主架構參考：類別與子項目順序以這個檔為主
-MASTER_FILE = os.path.join(DATA_DIR_DROPBOX, 'money2026.sqlite')
+MASTER_FILE = os.path.join(DB_DIR_DROPBOX, 'money2026.sqlite')
 
 SOURCES = [
     # Jack 主帳（每年取最完整版）
     os.path.join(DATA_DIR_LOCAL,   'money.sqlite'),                    # 2009-2017
-    os.path.join(DATA_DIR_DROPBOX, '年度收支', 'money2019.sqlite'),
-    os.path.join(DATA_DIR_DROPBOX, '年度收支', 'money2020.sqlite'),
-    os.path.join(DATA_DIR_DROPBOX, '年度收支', 'money2021.sqlite'),
-    os.path.join(DATA_DIR_DROPBOX, '年度收支', 'money2022.sqlite'),
+    os.path.join(DB_DIR_DROPBOX, 'money2019.sqlite'),
+    os.path.join(DB_DIR_DROPBOX, 'money2020.sqlite'),
+    os.path.join(DB_DIR_DROPBOX, 'money2021.sqlite'),
+    os.path.join(DB_DIR_DROPBOX, 'money2022.sqlite'),
     os.path.join(DATA_DIR_LOCAL,   'money2023.sqlite'),
     os.path.join(DATA_DIR_LOCAL,   'money2024.sqlite'),
     os.path.join(DATA_DIR_LOCAL,   'money2025.sqlite'),
     MASTER_FILE,                                                       # 2026
     # Cassie 相關（uno 都映射到 1）
-    os.path.join(DATA_DIR_DROPBOX, 'Cassie', 'cassie.sqlite'),
-    os.path.join(DATA_DIR_DROPBOX, '2010cassie_money.sqlite'),
-    os.path.join(DATA_DIR_DROPBOX, '2011cassie_money.sqlite'),
-    os.path.join(DATA_DIR_DROPBOX, '2012cassie_money.sqlite'),
-    os.path.join(DATA_DIR_DROPBOX, 'cassie_money.sqlite'),
+    os.path.join(DB_DIR_DROPBOX, 'Cassie_cassie.sqlite'),
+    os.path.join(DB_DIR_DROPBOX, '2010cassie_money.sqlite'),
+    os.path.join(DB_DIR_DROPBOX, '2011cassie_money.sqlite'),
+    os.path.join(DB_DIR_DROPBOX, '2012cassie_money.sqlite'),
+    os.path.join(DB_DIR_DROPBOX, 'cassie_money.sqlite'),
 ]
 
 OUTPUT_FILE = os.path.join(DATA_DIR_LOCAL, 'money_merged.sqlite')

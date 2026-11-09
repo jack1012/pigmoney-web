@@ -15,7 +15,8 @@ import sqlite3
 import sys
 from collections import Counter, defaultdict
 
-CSV_FILE = r'F:\Dropbox\(0)money\年度收支\2019-2024年度收支.csv'
+# 2026-11-09 資料夾整理：已移到 05_年度財報與分析（資料夾已攤平；碟符 F: 在本機不存在，實體為 E:）
+CSV_FILE = r'F:\Dropbox\(0)money\05_年度財報與分析\2019-2024年度收支.csv'
 DB_FILE  = r'D:\Projects\pigmoney-web\.data\money_merged.sqlite'
 
 YEAR_START = '2019'
