@@ -161,9 +161,9 @@ function openErrorReports() {
         class="h-full flex items-center justify-center text-zinc-500"
       >
         <div class="text-center">
-          <p class="mb-3 text-sm">請先到「關於」分頁載入 money*.sqlite 檔</p>
-          <button class="btn btn-primary" @click="currentTab = 'settings'">
-            前往關於
+          <p class="mb-3 text-sm">請選擇 money*.sqlite 檔開始</p>
+          <button class="btn btn-primary" :disabled="store.loading" @click="pickFile">
+            {{ store.loading ? '載入中…' : '開啟 .sqlite' }}
           </button>
         </div>
       </div>
