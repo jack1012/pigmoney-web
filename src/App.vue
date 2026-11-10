@@ -137,6 +137,15 @@ const landingFeatures = [
   { icon: 'M4 6h16M4 12h16M4 18h10', label: '相容豬頭記帳', desc: '沿用舊版資料庫格式' },
 ]
 
+// 登出：關閉檔案回登入頁；還有沒寫進磁碟的修改時先確認，避免無聲丟資料
+async function logout() {
+  if (!(await store.closeFile())) {
+    if (!window.confirm('目前有尚未寫入磁碟的修改，登出後會遺失。確定要登出嗎？')) return
+    await store.closeFile({ force: true })
+  }
+  currentTab.value = 'entry'
+}
+
 function switchTab(id) {
   currentTab.value = id
   store.checkDiskReload()
@@ -199,6 +208,7 @@ function openErrorReports() {
         <button class="btn" @click="pickFile">
           {{ store.fileName ? '更換檔案' : '開啟 .sqlite' }}
         </button>
+        <button v-if="store.db" class="btn" title="關閉檔案並回到登入頁" @click="logout">登出</button>
         <!-- showOpenFilePicker 被 Chrome 中止後顯示，提供 <input type="file"> 備援 -->
         <button
           v-if="store.pickerFailed"

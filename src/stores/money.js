@@ -494,6 +494,24 @@ export const useMoneyStore = defineStore('money', () => {
     }
   }
 
+  // 登出：關閉目前的資料庫，回到登入頁。先等進行中的存檔寫完；
+  // 仍有沒寫進磁碟的修改（存檔失敗、唯讀模式）就回傳 false，由呼叫端確認後再用 force 關閉。
+  async function closeFile({ force = false } = {}) {
+    await saveChain.catch(() => {})
+    if (dirty.value && !force) return false
+    db.value = null
+    fileHandle.value = null
+    fileName.value = ''
+    lastSaved.value = ''
+    diskLastModified.value = 0
+    diskReloaded.value = false
+    dirty.value = false
+    unsavedConflict.value = false
+    pickerFailed.value = false
+    error.value = ''
+    return true
+  }
+
   function refreshAll() {
     if (!db.value) return
     classes.value = rowsToObjects(
@@ -963,6 +981,7 @@ export const useMoneyStore = defineStore('money', () => {
     openFile,
     openFileFromBlob,
     openFileFromDrop,
+    closeFile,
     pickerFailed,
     downloadDb,
     saveFile,

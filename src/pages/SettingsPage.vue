@@ -286,6 +286,13 @@ function exportReportSource() {
 
           <div class="space-y-3">
             <div>
+              <p class="text-emerald-600 dark:text-emerald-400 font-semibold mb-0.5">v2.3.6 (2026-11-10) — 新增登出</p>
+              <ul class="space-y-0.5 leading-relaxed pl-2">
+                <li>· 標題列新增<strong>登出</strong>按鈕：關閉目前檔案、回到登入頁，可重新選檔或拖曳另一個檔案</li>
+                <li>· 登出前會先等進行中的存檔寫完；若仍有沒寫進磁碟的修改（存檔失敗、唯讀模式），先跳確認，避免無聲丟資料</li>
+              </ul>
+            </div>
+            <div>
               <p class="text-emerald-600 dark:text-emerald-400 font-semibold mb-0.5">v2.3.5 (2026-11-10) — 登入頁重新設計</p>
               <ul class="space-y-0.5 leading-relaxed pl-2">
                 <li>· 登入頁改為品牌標題＋大型拖曳投放區（拖曳進視窗時亮起）＋「選擇 .sqlite 檔案」按鈕，主動作一眼可見</li>
