@@ -113,10 +113,29 @@ function onFileInputChange(e) {
   e.target.value = ''   // 重設，才能重複選同一個檔
 }
 
+// 拖曳進入視窗時登入頁的投放區要亮起來；dragenter/dragleave 會在子元素間重複觸發，用計數器抵銷
+const dragDepth = ref(0)
+const isDragging = computed(() => dragDepth.value > 0)
+
 function onDrop(e) {
   e.preventDefault()
+  dragDepth.value = 0
   store.openFileFromDrop(e.dataTransfer)
 }
+
+// build 時間（ISO）轉成當地時間顯示；dev 模式沒有注入時間就原樣顯示
+const buildTimeLabel = computed(() => {
+  const d = new Date(BUILD_TIME)
+  return Number.isNaN(d.getTime())
+    ? BUILD_TIME
+    : d.toLocaleString('zh-TW', { hour12: false, dateStyle: 'short', timeStyle: 'short' })
+})
+
+const landingFeatures = [
+  { icon: 'M12 11c0-1.1.9-2 2-2h0a2 2 0 0 1 2 2v2H8v-2a2 2 0 0 1 2-2h0M6 13h12v6H6z', label: '資料不上傳', desc: '全部在瀏覽器內運算' },
+  { icon: 'M4 12l5 5L20 6', label: '直接存回原檔', desc: '每次修改自動寫回' },
+  { icon: 'M4 6h16M4 12h16M4 18h10', label: '相容豬頭記帳', desc: '沿用舊版資料庫格式' },
+]
 
 function switchTab(id) {
   currentTab.value = id
@@ -142,7 +161,13 @@ function openErrorReports() {
 </script>
 
 <template>
-  <div class="flex flex-col h-screen" @dragover.prevent @drop="onDrop">
+  <div
+    class="flex flex-col h-screen"
+    @dragenter.prevent="dragDepth++"
+    @dragleave="dragDepth = Math.max(0, dragDepth - 1)"
+    @dragover.prevent
+    @drop="onDrop"
+  >
     <header class="flex items-end gap-0 px-3 pt-1 bg-zinc-100 dark:bg-zinc-900 border-b border-zinc-300 dark:border-zinc-700">
       <h1 class="text-base font-semibold mr-4 pb-2 self-center text-zinc-700 dark:text-zinc-200">家庭記帳本</h1>
 
@@ -203,30 +228,94 @@ function openErrorReports() {
     </div>
 
     <main class="flex-1 min-h-0 overflow-hidden bg-white dark:bg-zinc-950">
+      <!-- 登入頁：未載入資料庫時的首頁，主動作是「拖曳 / 選擇 .sqlite」 -->
       <div
         v-if="!store.db && currentTab !== 'settings'"
-        class="h-full flex items-center justify-center text-zinc-500"
+        class="landing h-full overflow-y-auto flex px-4 py-8"
       >
-        <div class="text-center">
-          <p class="mb-1 text-sm">請選擇 money*.sqlite 檔開始</p>
-          <p class="mb-3 text-xs text-zinc-400">或直接把檔案拖曳到這個視窗（Chrome 選檔失敗時用這個）</p>
-          <button class="btn btn-primary" :disabled="store.loading" @click="pickFile">
-            {{ store.loading ? '載入中…' : '開啟 .sqlite' }}
-          </button>
-          <p v-if="store.pickerFailed" class="mt-3 max-w-sm text-xs text-amber-600 dark:text-amber-400">
-            選檔視窗被瀏覽器中止（Chrome 157 已知問題）。請改<strong>把 .sqlite 檔拖進這個視窗</strong>，一樣可以存檔；
-            下方「傳統選檔」只能唯讀，改動不會寫回檔案。
-          </p>
-          <!-- showOpenFilePicker 失敗後備援，唯讀，不支援自動存檔 -->
-          <button
-            v-if="store.pickerFailed"
-            class="btn mt-2"
-            :disabled="store.loading"
-            @click="pickFileFallback"
+        <div class="w-full max-w-xl m-auto">
+          <!-- 品牌 -->
+          <div class="text-center mb-6">
+            <div class="mx-auto mb-3 w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 shadow-lg shadow-blue-500/30 flex items-center justify-center">
+              <svg viewBox="0 0 24 24" class="w-8 h-8 text-white" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <ellipse cx="12" cy="6" rx="7" ry="3" />
+                <path d="M5 6v6c0 1.7 3.1 3 7 3s7-1.3 7-3V6" />
+                <path d="M5 12v6c0 1.7 3.1 3 7 3s7-1.3 7-3v-6" />
+              </svg>
+            </div>
+            <h2 class="text-2xl font-bold tracking-tight text-zinc-800 dark:text-zinc-100">家庭記帳本</h2>
+            <p class="mt-1 text-sm text-zinc-500 dark:text-zinc-400">豬頭記帳網頁版 · 記帳、預算、資產與圖表分析</p>
+          </div>
+
+          <!-- 投放區：整個視窗都能放，這裡負責視覺回饋 -->
+          <div
+            class="dropzone rounded-2xl border-2 border-dashed p-8 text-center transition-colors"
+            :class="isDragging
+              ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/40'
+              : 'border-zinc-300 dark:border-zinc-700 bg-zinc-50/70 dark:bg-zinc-900/60'"
           >
-            換用傳統選檔（唯讀）
-          </button>
-          <p class="mt-4 text-xs text-red-500">v{{ APP_VERSION }} · build {{ BUILD_TIME }}</p>
+            <svg viewBox="0 0 24 24" class="mx-auto w-10 h-10 mb-3 transition-colors" :class="isDragging ? 'text-blue-500' : 'text-zinc-400'" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M12 16V4m0 0L7 9m5-5 5 5" />
+              <path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3" />
+            </svg>
+            <p class="text-base font-medium text-zinc-700 dark:text-zinc-200">
+              {{ isDragging ? '放開滑鼠，開始載入' : '把 money*.sqlite 拖到這裡' }}
+            </p>
+            <p class="mt-1 text-xs text-zinc-400">拖曳開啟的檔案可直接存回原檔</p>
+
+            <div class="my-4 flex items-center gap-3 text-xs text-zinc-400" aria-hidden="true">
+              <span class="flex-1 h-px bg-zinc-200 dark:bg-zinc-700"></span>或<span class="flex-1 h-px bg-zinc-200 dark:bg-zinc-700"></span>
+            </div>
+
+            <button class="btn btn-primary !px-6 !py-2 !text-sm !rounded-lg" :disabled="store.loading" @click="pickFile">
+              <svg v-if="store.loading" class="animate-spin w-4 h-4 mr-2" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="3" opacity="0.25" />
+                <path d="M21 12a9 9 0 0 0-9-9" stroke="currentColor" stroke-width="3" stroke-linecap="round" />
+              </svg>
+              {{ store.loading ? '載入中…' : '選擇 .sqlite 檔案' }}
+            </button>
+          </div>
+
+          <!-- 選檔視窗被瀏覽器中止（Chrome 157 已知問題）時的引導 -->
+          <div
+            v-if="store.pickerFailed"
+            class="mt-4 rounded-xl border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20 p-4 text-left text-xs leading-relaxed text-amber-800 dark:text-amber-300"
+          >
+            <p class="font-semibold mb-1">選檔視窗被瀏覽器中止（Chrome 157 已知問題）</p>
+            <p>
+              請改<strong>把 .sqlite 檔拖進這個視窗</strong>，一樣可以存檔。
+              下方「傳統選檔」只能唯讀，改動不會寫回檔案。
+            </p>
+            <!-- showOpenFilePicker 失敗後備援，唯讀，不支援自動存檔 -->
+            <button
+              class="mt-2 underline underline-offset-2 hover:no-underline disabled:opacity-50"
+              :disabled="store.loading"
+              @click="pickFileFallback"
+            >
+              換用傳統選檔（唯讀）
+            </button>
+          </div>
+
+          <!-- 特色 -->
+          <ul class="mt-6 grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <li
+              v-for="f in landingFeatures"
+              :key="f.label"
+              class="flex sm:flex-col items-center sm:items-center gap-3 sm:gap-1.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3 py-3 text-left sm:text-center"
+            >
+              <svg viewBox="0 0 24 24" class="w-5 h-5 shrink-0 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path :d="f.icon" />
+              </svg>
+              <div>
+                <p class="text-[13px] font-medium text-zinc-700 dark:text-zinc-200">{{ f.label }}</p>
+                <p class="text-[11px] text-zinc-400">{{ f.desc }}</p>
+              </div>
+            </li>
+          </ul>
+
+          <p class="mt-6 text-center text-[11px] text-zinc-400">
+            v{{ APP_VERSION }} · build {{ buildTimeLabel }} · 需使用 Chrome 或 Edge
+          </p>
         </div>
       </div>
 

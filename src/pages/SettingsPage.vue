@@ -286,6 +286,14 @@ function exportReportSource() {
 
           <div class="space-y-3">
             <div>
+              <p class="text-emerald-600 dark:text-emerald-400 font-semibold mb-0.5">v2.3.5 (2026-11-10) — 登入頁重新設計</p>
+              <ul class="space-y-0.5 leading-relaxed pl-2">
+                <li>· 登入頁改為品牌標題＋大型拖曳投放區（拖曳進視窗時亮起）＋「選擇 .sqlite 檔案」按鈕，主動作一眼可見</li>
+                <li>· 選檔被瀏覽器中止時，在投放區下方出現琥珀色引導卡，說明改用拖曳、並警告傳統選檔僅唯讀</li>
+                <li>· 新增三項特色說明（資料不上傳／直接存回原檔／相容豬頭記帳）、build 時間改成當地時間；亮／暗色與手機寬度皆已檢查</li>
+              </ul>
+            </div>
+            <div>
               <p class="text-emerald-600 dark:text-emerald-400 font-semibold mb-0.5">v2.3.4 (2026-11-10) — 連續存檔合併，並拉長存檔重試</p>
               <ul class="space-y-0.5 leading-relaxed pl-2">
                 <li>· 回報：連刪兩筆，第二次存檔出現 InvalidStateError（Edge 157、檔案在 Dropbox 資料夾）</li>

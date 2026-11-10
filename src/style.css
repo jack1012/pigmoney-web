@@ -168,3 +168,18 @@ label.field-label {
 .dark label.field-label {
   color: #a1a1aa;
 }
+
+/* 登入頁背景：上方一抹品牌藍光暈 + 淡點陣，亮/暗色各一組 */
+.landing {
+  background-color: #fff;
+  background-image:
+    radial-gradient(ellipse 60% 40% at 50% 0%, rgb(59 130 246 / 0.12), transparent 70%),
+    radial-gradient(circle, rgb(113 113 122 / 0.18) 1px, transparent 1px);
+  background-size: auto, 22px 22px;
+}
+.dark .landing {
+  background-color: #09090b;
+  background-image:
+    radial-gradient(ellipse 60% 40% at 50% 0%, rgb(59 130 246 / 0.22), transparent 70%),
+    radial-gradient(circle, rgb(161 161 170 / 0.12) 1px, transparent 1px);
+}
