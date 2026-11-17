@@ -1,8 +1,17 @@
 <script setup>
+import { computed } from 'vue'
 import { useMoneyStore } from '../stores/money.js'
 import { APP_VERSION, BUILD_TIME } from '../lib/version.js'
 
 const store = useMoneyStore()
+
+// build 時間（ISO）轉成當地時間顯示；dev 模式沒有注入時間就原樣顯示
+const buildTimeLabel = computed(() => {
+  const d = new Date(BUILD_TIME)
+  return Number.isNaN(d.getTime())
+    ? BUILD_TIME
+    : d.toLocaleString('zh-TW', { hour12: false, dateStyle: 'short', timeStyle: 'short' })
+})
 
 function errorTime(value) {
   return new Date(value).toLocaleString('zh-TW', {
@@ -72,6 +81,11 @@ function exportReportSource() {
           <section class="panel">
             <span class="panel-title">資料庫</span>
             <div class="grid grid-cols-12 gap-x-3 gap-y-2 items-center text-[13px]">
+              <label class="field-label col-span-2 text-right whitespace-nowrap">系統版本:</label>
+              <div class="col-span-10 text-[12px] font-semibold text-red-600 dark:text-red-400">
+                v{{ APP_VERSION }} · build {{ buildTimeLabel }}
+              </div>
+
               <label class="field-label col-span-2 text-right whitespace-nowrap">目前載入:</label>
               <code class="col-span-10 text-[12px] text-zinc-700 dark:text-zinc-300 truncate">
                 {{ store.fileName || '（尚未載入）' }}
@@ -280,9 +294,12 @@ function exportReportSource() {
 
       <!-- Cell 3：開發日誌 -->
       <section class="panel h-full flex flex-col min-h-0 overflow-hidden">
-        <span class="panel-title">開發日誌</span>
+        <div class="flex items-center justify-between mb-1.5">
+          <span class="panel-title !mb-0">開發日誌</span>
+          <span class="text-xs font-semibold text-red-600 dark:text-red-400">v{{ APP_VERSION }} · build {{ buildTimeLabel }}</span>
+        </div>
         <div class="text-[12px] text-zinc-600 dark:text-zinc-400 space-y-3 flex-1 min-h-0 overflow-y-auto pr-1">
-          <p class="font-medium text-zinc-800 dark:text-zinc-200">家庭記帳本 v{{ APP_VERSION }} (2026-11-10) — 豬頭記帳網頁版</p>
+          <p class="font-medium text-red-600 dark:text-red-400">家庭記帳本 v{{ APP_VERSION }} · build {{ buildTimeLabel }} — 豬頭記帳網頁版</p>
 
           <div class="space-y-3">
             <div>

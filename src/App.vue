@@ -255,6 +255,11 @@ function openErrorReports() {
             </div>
             <h2 class="text-2xl font-bold tracking-tight text-zinc-800 dark:text-zinc-100">家庭記帳本</h2>
             <p class="mt-1 text-sm text-zinc-500 dark:text-zinc-400">豬頭記帳網頁版 · 記帳、預算、資產與圖表分析</p>
+            <div class="mt-2.5">
+              <span class="inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold bg-red-100 text-red-600 dark:bg-red-950/60 dark:text-red-400 border border-red-200 dark:border-red-900/50">
+                v{{ APP_VERSION }} · build {{ buildTimeLabel }}
+              </span>
+            </div>
           </div>
 
           <!-- 投放區：整個視窗都能放，這裡負責視覺回饋 -->
@@ -323,7 +328,7 @@ function openErrorReports() {
             </li>
           </ul>
 
-          <p class="mt-6 text-center text-[11px] text-zinc-400">
+          <p class="mt-6 text-center text-xs font-semibold text-red-600 dark:text-red-400">
             v{{ APP_VERSION }} · build {{ buildTimeLabel }} · 需使用 Chrome 或 Edge
           </p>
         </div>

@@ -68,6 +68,13 @@ Default to surfacing uncertainty, not hiding it.
 If unsure how to run a command in this environment (PATH, shell, permissions),
 stop and ask the user rather than guessing or using a workaround silently.
 
+## Rule 14 — Locate the bug before you patch it
+Behavior that differs across environments (one browser works, another doesn't) IS
+the clue — search the platform's known issues BEFORE changing your own code.
+One report is not a pattern: read the full set before forming a theory.
+Make sure you can observe the failure before you try to fix it.
+Can't reproduce it in the user's environment? It isn't fixed. Don't claim it is.
+
 ---
 
 # 專案：pigmoney-web
@@ -123,8 +130,15 @@ src/
 
 - `saveFile()` 用 **File System Access API**（`createWritable`）→ **只支援 Chrome / Edge**。
 - `openFile()` 用 `showOpenFilePicker`，存 `fileHandle` 以便後續回寫。
+- 另有 `openFileFromDrop()`：**拖曳 .sqlite 到視窗**開檔，同樣拿得到 `fileHandle`，可寫回磁碟。
+- `openFileFromBlob()` 是 `<input type="file">` 備援，**拿不到 `fileHandle` → 唯讀**；此時寫入一律跳錯誤留紀錄，**絕不無聲略過**（v2.3.1 修過一次，25 個寫入動作全部無聲失效）。
 - `checkDiskReload()`：tab 切換時比對磁碟 `lastModified`，外部改檔會自動重載（給 node 腳本改完 DB 後在 UI 看得到）。
 - DB 是 sql.js 記憶體實例；不存檔 = 改動只在記憶體。
+
+> ⚠️ **選檔打不開先懷疑瀏覽器，不要先改 `openFile()`。** Chrome 157 (Windows) 的 `showOpenFilePicker`
+> 在選檔視窗用滑鼠導覽資料夾後會丟 `AbortError`，Edge 不受影響（chromium 582407452）；可靠路徑是拖曳。
+> 要證據：**關於 → 系統錯誤回報 → 匯出全部**（存在 localStorage `pigmoney-system-error-reports`）。
+> 完整症狀、根因與檢討見 `SettingsPage.vue` 開發日誌 v2.3.1–v2.3.6。
 
 ## DB Schema
 
@@ -190,6 +204,6 @@ App 實際開的是使用者自選的檔；離線分析的標準工作檔是 `.d
 
 - 繁體中文註解與 UI 文案。
 - 金額單位：DB 存「元」整數；UI 常以「萬」顯示（除以 10000）。
-- 改動要外科手術式（見上方 13 條規則）：只動該動的，不順手重排/重構鄰近碼，配合既有風格。
+- 改動要外科手術式（見上方 14 條規則）：只動該動的，不順手重排/重構鄰近碼，配合既有風格。
 - ChartPage.vue 的 computed 互相依賴密集，改公式前先讀清楚資料怎麼一路算出來，別只看單一分支臆測。
 
